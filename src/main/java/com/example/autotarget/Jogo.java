@@ -38,15 +38,31 @@ public class Jogo implements Runnable {
 
     @Override
     public void run() {
+        GerenciadorMetricas.log("THREAD_PRINCIPAL", "Iniciada");
         while (emExecucao && !Thread.currentThread().isInterrupted()) {
+            long inicio = System.currentTimeMillis();
             try {
                 verificarColisoes();
+                
+                // Registro periódico de estado (aprox a cada 1s)
+                if (System.currentTimeMillis() % 1000 < 25) {
+                    int numProjeteis = 0;
+                    synchronized (LOCK_CANHOES) {
+                        for (Canhao c : canhoes) numProjeteis += c.getProjeteis().size();
+                    }
+                    GerenciadorMetricas.logEstado(alvos.size(), canhoes.size(), numProjeteis);
+                }
+
+                long fim = System.currentTimeMillis();
+                GerenciadorMetricas.registrarTempoLoop(fim - inicio);
+
                 Thread.sleep(20); 
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 break;
             }
         }
+        GerenciadorMetricas.log("THREAD_PRINCIPAL", "Encerrada");
     }
 
     /**
@@ -55,6 +71,7 @@ public class Jogo implements Runnable {
     public void setDimensoes(int largura, int altura) {
         this.larguraTela = largura;
         this.alturaTela = altura;
+        GerenciadorMetricas.log("CONFIG", "Tela atualizada para: " + largura + "x" + altura);
         
         synchronized (LOCK_ALVOS) {
             for (Alvo alvo : alvos) {
@@ -79,7 +96,7 @@ public class Jogo implements Runnable {
             throw new JogoException("Jogo já está em execução");
         }
 
-        // Inicializa o pool de threads para projéteis
+        GerenciadorMetricas.log("CONCORRENCIA", "Iniciando ExecutorService (Pool: " + POOL_PROJETEIS + ")");
         executorProjeteis = Executors.newFixedThreadPool(POOL_PROJETEIS);
 
         synchronized (LOCK_CANHOES) {
@@ -101,16 +118,18 @@ public class Jogo implements Runnable {
 
         threadPrincipal = new Thread(this);
         threadPrincipal.start();
+        GerenciadorMetricas.log("SISTEMA", "Jogo iniciado com sucesso");
     }
 
     /**
      * Finaliza o jogo e encerra todos os serviços de execução.
      */
     public synchronized void parar() {
+        GerenciadorMetricas.log("SISTEMA", "Parando o jogo...");
         emExecucao = false;
         
-        // Encerra o executor de projéteis
         if (executorProjeteis != null) {
+            GerenciadorMetricas.log("CONCORRENCIA", "Encerrando pool de projéteis");
             executorProjeteis.shutdownNow();
             try {
                 if (!executorProjeteis.awaitTermination(500, TimeUnit.MILLISECONDS)) {
@@ -131,6 +150,7 @@ public class Jogo implements Runnable {
         synchronized (LOCK_CANHOES) {
             for (Canhao canhao : canhoes) canhao.setAtivo(false);
         }
+        GerenciadorMetricas.log("SISTEMA", "Jogo parado");
     }
 
     /**
@@ -148,6 +168,7 @@ public class Jogo implements Runnable {
         double w = larguraTela > 0 ? larguraTela : 1000;
         double h = alturaTela > 0 ? alturaTela : 1000;
         
+        GerenciadorMetricas.log("LOGICA", "Criando alvos iniciais");
         for (int i = 0; i < 3; i++) {
             adicionarAlvo(new AlvoComum(random.nextDouble() * (w * 0.8) + (w * 0.1), 
                           random.nextDouble() * (h * 0.8) + (h * 0.1), 40, 5));
@@ -185,6 +206,7 @@ public class Jogo implements Runnable {
 
             Canhao novoCanhao = new Canhao(x, y, this);
             canhoes.add(novoCanhao);
+            GerenciadorMetricas.log("LOGICA", "Novo canhão adicionado em: " + x + "," + y);
             if (emExecucao) {
                 novoCanhao.setAtivo(true);
                 new Thread(novoCanhao).start();
@@ -205,6 +227,7 @@ public class Jogo implements Runnable {
                                 alvo.setAtivo(false);
                                 projetil.setAtivo(false);
                                 abatesTotal++;
+                                GerenciadorMetricas.registrarColisao();
                                 break;
                             }
                         }

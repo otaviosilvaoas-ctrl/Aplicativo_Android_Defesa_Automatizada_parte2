@@ -19,7 +19,13 @@ public class JogoView extends View {
     private Paint paintCanhao;
     private Paint paintProjetil;
     private Paint paintTexto;
+    private Paint paintDebug;
     private boolean podeDesenhar;
+
+    // Variáveis para cálculo de FPS
+    private long lastTime = 0;
+    private int frameCount = 0;
+    private int currentFps = 0;
 
     public JogoView(Context context) {
         super(context);
@@ -55,15 +61,17 @@ public class JogoView extends View {
 
         paintTexto = new Paint();
         paintTexto.setColor(Color.WHITE);
-        paintTexto.setTextSize(60); // Aumentado para melhor visibilidade
+        paintTexto.setTextSize(60);
         paintTexto.setStyle(Paint.Style.FILL);
+
+        paintDebug = new Paint();
+        paintDebug.setColor(Color.YELLOW);
+        paintDebug.setTextSize(30);
+        paintDebug.setStyle(Paint.Style.FILL);
 
         podeDesenhar = true;
     }
 
-    /**
-     * Define a instância do jogo a ser renderizada.
-     */
     public void setJogo(Jogo jogo) {
         this.jogo = jogo;
     }
@@ -84,13 +92,23 @@ public class JogoView extends View {
             return;
         }
 
+        // Cálculo de FPS
+        long now = System.currentTimeMillis();
+        frameCount++;
+        if (now - lastTime >= 1000) {
+            currentFps = frameCount;
+            frameCount = 0;
+            lastTime = now;
+            GerenciadorMetricas.registrarFPS(currentFps);
+        }
+
         // Desenha fundo
         canvas.drawColor(Color.BLACK);
 
         // Desenha linha divisória
         Paint linePaint = new Paint();
         linePaint.setColor(Color.WHITE);
-        linePaint.setAlpha(50); // Transparente para não atrapalhar
+        linePaint.setAlpha(50);
         linePaint.setStrokeWidth(3);
         canvas.drawLine(getWidth() / 2f, 0, getWidth() / 2f, getHeight(), linePaint);
 
@@ -121,54 +139,45 @@ public class JogoView extends View {
         // Desenha placar
         canvas.drawText("Abates: " + jogo.getAbatesTotal(), 40, 100, paintTexto);
 
-        // O invalidate() aqui faz a animação ser contínua
+        // Informações de DEBUG (apenas se ativado)
+        if (GerenciadorMetricas.DEBUG) {
+            canvas.drawText("FPS: " + currentFps, 40, 150, paintDebug);
+            canvas.drawText("Alvos: " + jogo.getAlvos().size(), 40, 190, paintDebug);
+        }
+
         invalidate();
     }
 
-    /**
-     * Desenha um canhão como um triângulo.
-     */
     private void drawCanhao(Canvas canvas, Canhao canhao) {
         float x = (float) canhao.getX();
         float y = (float) canhao.getY();
         float angulo = (float) canhao.getAngulo();
-        float tamanho = 50; // Aumentado um pouco
+        float tamanho = 50;
 
-        // Calcula os vértices do triângulo baseado no ângulo
         float x1 = x + tamanho * (float) Math.cos(angulo);
         float y1 = y + tamanho * (float) Math.sin(angulo);
 
-        float x2 = x + tamanho * (float) Math.cos(angulo + 2.094); // 120 graus
+        float x2 = x + tamanho * (float) Math.cos(angulo + 2.094);
         float y2 = y + tamanho * (float) Math.sin(angulo + 2.094);
 
-        float x3 = x + tamanho * (float) Math.cos(angulo + 4.189); // 240 graus
+        float x3 = x + tamanho * (float) Math.cos(angulo + 4.189);
         float y3 = y + tamanho * (float) Math.sin(angulo + 4.189);
 
-        // Desenha o triângulo
         canvas.drawLine(x1, y1, x2, y2, paintCanhao);
         canvas.drawLine(x2, y2, x3, y3, paintCanhao);
         canvas.drawLine(x3, y3, x1, y1, paintCanhao);
-
-        // Desenha círculo no centro
         canvas.drawCircle(x, y, 15, paintCanhao);
     }
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        if (jogo == null) {
-            return false;
-        }
-
-        float x = event.getX();
-        float y = event.getY();
-
+        if (jogo == null) return false;
         if (event.getAction() == MotionEvent.ACTION_DOWN || event.getAction() == MotionEvent.ACTION_MOVE) {
             try {
-                // Mira o primeiro canhão para onde o usuário tocou/arrastou
                 if (!jogo.getCanhoes().isEmpty()) {
                     Canhao canhao = jogo.getCanhoes().get(0);
-                    double dx = x - canhao.getX();
-                    double dy = y - canhao.getY();
+                    double dx = event.getX() - canhao.getX();
+                    double dy = event.getY() - canhao.getY();
                     double angulo = Math.atan2(dy, dx);
                     canhao.mover(canhao.getX(), canhao.getY(), angulo);
                 }
@@ -176,13 +185,9 @@ public class JogoView extends View {
                 e.printStackTrace();
             }
         }
-
         return true;
     }
 
-    /**
-     * Para o desenho.
-     */
     public void parar() {
         podeDesenhar = false;
     }
