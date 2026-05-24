@@ -9,6 +9,7 @@ import java.util.ArrayList;
  */
 public class Canhao implements Runnable {
     private double x, y;
+    private double targetX, targetY; // AV2: Posição alvo para movimentação suave
     private double angulo;
     private final List<Projetil> projeteis;
     private boolean ativo;
@@ -17,14 +18,42 @@ public class Canhao implements Runnable {
     
     private static final double VELOCIDADE_PROJETIL = 18;
     private static final int INTERVALO_DE_DISPARO_BASE = 700;
+    private static final double VELOCIDADE_MOVIMENTO = 2.0; // Pixels por ciclo
 
     public Canhao(double x, double y, Jogo jogo, int id) {
         this.x = x;
         this.y = y;
+        this.targetX = x;
+        this.targetY = y;
         this.jogo = jogo;
         this.id = id;
         this.projeteis = new ArrayList<>();
         this.ativo = true;
+    }
+
+    /**
+     * Define uma nova posição para o canhão se mover gradualmente.
+     */
+    public synchronized void setPosicaoObjetivo(double tx, double ty) {
+        this.targetX = tx;
+        this.targetY = ty;
+    }
+
+    /**
+     * Move o canhão suavemente em direção à posição objetivo.
+     */
+    private void atualizarMovimento() {
+        double dx = targetX - x;
+        double dy = targetY - y;
+        double dist = Math.hypot(dx, dy);
+        
+        if (dist > VELOCIDADE_MOVIMENTO) {
+            x += (dx / dist) * VELOCIDADE_MOVIMENTO;
+            y += (dy / dist) * VELOCIDADE_MOVIMENTO;
+        } else {
+            x = targetX;
+            y = targetY;
+        }
     }
 
     /**
@@ -41,8 +70,6 @@ public class Canhao implements Runnable {
         for (Alvo a : alvos) {
             if (a.isAtivo()) {
                 boolean alvoLadoEsquerdo = a.getX() < centroX;
-                
-                // Só mira se o alvo estiver no mesmo lado que o canhão
                 if (canhaoLadoEsquerdo == alvoLadoEsquerdo) {
                     double dx = a.getX() - this.x;
                     double dy = a.getY() - this.y;
@@ -60,13 +87,8 @@ public class Canhao implements Runnable {
         }
     }
 
-    /**
-     * Cria um novo projetil se houver energia disponível no seu lado.
-     */
     public void disparar() throws JogoException {
         if (!ativo) return;
-        
-        // AV2: Consome energia do lado correspondente. Se não houver, não dispara.
         if (jogo.consumirEnergia(this.x)) {
             Projetil p = new Projetil(x, y, angulo, VELOCIDADE_PROJETIL);
             synchronized (projeteis) {
@@ -78,19 +100,29 @@ public class Canhao implements Runnable {
 
     @Override
     public void run() {
+        long lastShot = 0;
         while (ativo && !Thread.currentThread().isInterrupted()) {
+            atualizarMovimento();
             mirar();
+            
+            long now = System.currentTimeMillis();
+            
+            // AV2: Calcula penalidade por excesso de canhões
+            boolean esquerda = this.x < (jogo.getLarguraTela() / 2.0);
+            double penalidade = jogo.getPenalidadeLado(esquerda);
+            long intervaloFinal = (long) (INTERVALO_DE_DISPARO_BASE * (1 + penalidade));
+
+            if (now - lastShot >= intervaloFinal) {
+                try {
+                    disparar();
+                    lastShot = now;
+                } catch (JogoException e) {
+                    e.printStackTrace();
+                }
+            }
+
             try {
-                disparar();
-                
-                // AV2: Calcula penalidade por excesso de canhões
-                boolean esquerda = this.x < (jogo.getLarguraTela() / 2.0);
-                double penalidade = jogo.getPenalidadeLado(esquerda);
-                long intervaloFinal = (long) (INTERVALO_DE_DISPARO_BASE * (1 + penalidade));
-                
-                Thread.sleep(intervaloFinal);
-            } catch (JogoException e) {
-                e.printStackTrace();
+                Thread.sleep(20); // Ciclo de atualização de 50 FPS
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 break;
@@ -115,8 +147,12 @@ public class Canhao implements Runnable {
     public double getAngulo() { return angulo; }
     public boolean isAtivo() { return ativo; }
     public void setAtivo(boolean ativo) { this.ativo = ativo; }
-    public void mover(double nx, double ny, double na) { this.x = nx; this.y = ny; this.angulo = na; }
+    public void mover(double nx, double ny, double na) { 
+        this.x = nx; 
+        this.y = ny; 
+        this.targetX = nx; // Atualiza objetivo se for via UI
+        this.targetY = ny;
+        this.angulo = na; 
+    }
     public int getId() { return id; }
-    
-    // Removidos métodos de energia interna pois agora a energia é gerenciada pelo Jogo (por lado)
 }

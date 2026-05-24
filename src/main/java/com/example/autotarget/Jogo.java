@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -34,6 +35,10 @@ public class Jogo implements Runnable {
     
     // Sensores AV2
     private final SensorManager sensorManager;
+    private ScheduledExecutorService reconciliationScheduler;
+    private double erroReconciliacaoAntes = 0;
+    private double erroReconciliacaoDepois = 0;
+    private int leiturasReconciliacaoUsadas = 0;
     
     private ExecutorService executorProjeteis;
 
@@ -120,6 +125,8 @@ public class Jogo implements Runnable {
         }
         
         sensorManager.iniciarColeta();
+        iniciarReconciliacao();
+        
         criarAlvosIniciais();
         threadPrincipal = new Thread(this);
         threadPrincipal.start();
@@ -129,6 +136,7 @@ public class Jogo implements Runnable {
     public synchronized void parar() {
         emExecucao = false;
         sensorManager.pararColeta();
+        pararReconciliacao();
         
         if (executorProjeteis != null) {
             executorProjeteis.shutdownNow();
@@ -140,6 +148,133 @@ public class Jogo implements Runnable {
         synchronized (LOCK_CANHOES) {
             for (Canhao canhao : canhoes) canhao.setAtivo(false);
         }
+    }
+
+    private void iniciarReconciliacao() {
+        reconciliationScheduler = Executors.newSingleThreadScheduledExecutor();
+        reconciliationScheduler.scheduleAtFixedRate(this::processarReconciliacao, 10, 10, TimeUnit.SECONDS);
+    }
+
+    private void pararReconciliacao() {
+        if (reconciliationScheduler != null) {
+            reconciliationScheduler.shutdownNow();
+        }
+    }
+
+    private void processarReconciliacao() {
+        if (!emExecucao) return;
+        GerenciadorMetricas.log("RECONCILIACAO", "Iniciando ciclo de otimização...");
+        
+        // Processa para cada lado
+        otimizarLado(true);  // Esquerda
+        otimizarLado(false); // Direita
+    }
+
+    private void otimizarLado(boolean esquerda) {
+        double centroX = larguraTela / 2.0;
+        List<Alvo> alvosLado = new ArrayList<>();
+        synchronized (LOCK_ALVOS) {
+            for (Alvo a : alvos) {
+                if (a.isAtivo() && (esquerda ? a.getX() < centroX : a.getX() >= centroX)) {
+                    alvosLado.add(a);
+                }
+            }
+        }
+
+        List<Canhao> canhoesLado = new ArrayList<>();
+        synchronized (LOCK_CANHOES) {
+            for (Canhao c : canhoes) {
+                if (c.isAtivo() && (esquerda ? c.getX() < centroX : c.getX() >= centroX)) {
+                    canhoesLado.add(c);
+                }
+            }
+        }
+
+        if (alvosLado.isEmpty() || canhoesLado.isEmpty()) return;
+
+        // Construção do Vetor y e Matriz V (Covariância)
+        int n = canhoesLado.size() * alvosLado.size();
+        double[] y = new double[n];
+        double[][] V = new double[n][n];
+        int idx = 0;
+
+        for (Canhao c : canhoesLado) {
+            for (Alvo a : alvosLado) {
+                List<SensorReading> leituras = a.getHistoricoLeituras();
+                if (leituras.size() < 2) {
+                    y[idx] = Math.hypot(c.getX() - a.getX(), c.getY() - a.getY());
+                    V[idx][idx] = 1.0;
+                } else {
+                    // Média e Variância das distâncias medidas
+                    double somaDist = 0;
+                    for (SensorReading r : leituras) {
+                        somaDist += Math.hypot(c.getX() - r.x, c.getY() - r.y);
+                    }
+                    double mediaDist = somaDist / leituras.size();
+                    
+                    double somaVar = 0;
+                    for (SensorReading r : leituras) {
+                        double d = Math.hypot(c.getX() - r.x, c.getY() - r.y);
+                        somaVar += Math.pow(d - mediaDist, 2);
+                    }
+                    y[idx] = mediaDist;
+                    V[idx][idx] = Math.max(0.1, somaVar / (leituras.size() - 1));
+                }
+                idx++;
+            }
+        }
+
+        // Matriz A (Incidência/Restrições)
+        // Usaremos uma restrição geométrica simples para AV2: 
+        // A soma das variações reconciliadas em torno de um canhão deve ser equilibrada.
+        double limiarDistancia = 500.0;
+        double[][] A = new double[canhoesLado.size()][n];
+        for (int i = 0; i < canhoesLado.size(); i++) {
+            for (int j = 0; j < alvosLado.size(); j++) {
+                int index = i * alvosLado.size() + j;
+                if (y[index] < limiarDistancia) {
+                    A[i][index] = 1.0;
+                }
+            }
+        }
+
+        // Executa Reconciliação
+        double[] yHat = DataReconciliation.reconcile(y, V, A);
+
+        // Calcula erro antes/depois para o HUD
+        double erroA = 0, erroD = 0;
+        for (int i = 0; i < n; i++) {
+            erroA += Math.abs(MatrixMath.multiply(A, y)[i % A.length]);
+            erroD += Math.abs(MatrixMath.multiply(A, yHat)[i % A.length]);
+        }
+        erroReconciliacaoAntes = erroA / n;
+        erroReconciliacaoDepois = erroD / n;
+        leiturasReconciliacaoUsadas = n;
+
+        // Otimização de Posicionamento (Centroide dos Alvos Reconciliados)
+        idx = 0;
+        for (Canhao c : canhoesLado) {
+            double somaX = 0, somaY = 0, pesoTotal = 0;
+            for (Alvo a : alvosLado) {
+                // Usa a distância reconciliada como peso inverso (mais perto = mais importante)
+                double peso = 1.0 / Math.max(1.0, yHat[idx]);
+                somaX += a.getX() * peso;
+                somaY += a.getY() * peso;
+                pesoTotal += peso;
+                idx++;
+            }
+            if (pesoTotal > 0) {
+                double targetX = somaX / pesoTotal;
+                double targetY = somaY / pesoTotal;
+                
+                // Limita a movimentação ao lado correspondente
+                if (esquerda) targetX = Math.min(targetX, centroX - 100);
+                else targetX = Math.max(targetX, centroX + 100);
+                
+                c.setPosicaoObjetivo(targetX, targetY);
+            }
+        }
+        adicionarLog("Sistema Otimizado (AV2)");
     }
 
     public void dispararProjetil(Projetil p) {
@@ -235,6 +370,10 @@ public class Jogo implements Runnable {
     }
 
     public SensorManager getSensorManager() { return sensorManager; }
+    
+    public double getErroRecAntes() { return erroReconciliacaoAntes; }
+    public double getErroRecDepois() { return erroReconciliacaoDepois; }
+    public int getLeiturasRecUsadas() { return leiturasReconciliacaoUsadas; }
 
     // Recursos AV2
     public int getEnergiaEsquerda() { return energiaEsquerda.get(); }

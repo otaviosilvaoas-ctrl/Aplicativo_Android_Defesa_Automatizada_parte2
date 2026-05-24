@@ -8,6 +8,7 @@ import android.graphics.Canvas;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * View customizada que renderiza o jogo no Canvas com feedback visual melhorado e HUD AV2.
@@ -24,6 +25,7 @@ public class JogoView extends View {
     private Paint paintBarraEnergia;
     private Paint paintLegenda;
     private Paint paintDivisoria;
+    private Paint paintRec;
     private boolean podeDesenhar;
 
     private long lastTime = 0;
@@ -81,6 +83,10 @@ public class JogoView extends View {
         paintDivisoria.setColor(Color.WHITE);
         paintDivisoria.setAlpha(80);
         paintDivisoria.setStrokeWidth(2);
+
+        paintRec = new Paint(Paint.ANTI_ALIAS_FLAG);
+        paintRec.setTextSize(22);
+        paintRec.setColor(Color.CYAN);
 
         podeDesenhar = true;
     }
@@ -199,13 +205,19 @@ public class JogoView extends View {
             canvas.drawText("Penalidade: +" + (int)(penDir * 100) + "% delay", xDir, 205, paintHUD);
         }
 
+        // HUD AV2: Informações de Reconciliação (Centro Inferior)
+        paintRec.setTextAlign(Paint.Align.CENTER);
+        String infoRec = String.format(Locale.US, "Rec. Ativa | Erro: %.2f -> %.2f | Leituras: %d", 
+                jogo.getErroRecAntes(), jogo.getErroRecDepois(), jogo.getLeiturasRecUsadas());
+        canvas.drawText(infoRec, getWidth() / 2f, getHeight() - 50, paintRec);
+
         // Centro/Logs
         paintHUD.setTextAlign(Paint.Align.CENTER);
         paintHUD.setColor(Color.GRAY);
         paintHUD.setTextSize(25);
         List<String> logs = jogo.getLogsTela();
         for (int i = 0; i < logs.size(); i++) {
-            canvas.drawText(logs.get(i), getWidth()/2f, getHeight() - 100 - (i * 35), paintHUD);
+            canvas.drawText(logs.get(i), getWidth()/2f, getHeight() - 150 - (i * 35), paintHUD);
         }
 
         if (GerenciadorMetricas.DEBUG) {
