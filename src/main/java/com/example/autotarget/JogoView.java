@@ -26,6 +26,7 @@ public class JogoView extends View {
     private Paint paintLegenda;
     private Paint paintDivisoria;
     private Paint paintRec;
+    private Paint paintIA;
     private boolean podeDesenhar;
 
     private long lastTime = 0;
@@ -87,6 +88,10 @@ public class JogoView extends View {
         paintRec = new Paint(Paint.ANTI_ALIAS_FLAG);
         paintRec.setTextSize(22);
         paintRec.setColor(Color.CYAN);
+
+        paintIA = new Paint(Paint.ANTI_ALIAS_FLAG);
+        paintIA.setTextSize(24);
+        paintIA.setColor(Color.YELLOW);
 
         podeDesenhar = true;
     }
@@ -179,9 +184,14 @@ public class JogoView extends View {
         canvas.drawRect(padding, 115, padding + (larguraBarra * energiaEsq / 100f), 115 + alturaBarra, paintBarraEnergia);
         canvas.drawText("Energia: " + energiaEsq + "%", padding, 165, paintHUD);
         
+        // IA AV2 (Esquerda)
+        paintIA.setTextAlign(Paint.Align.LEFT);
+        canvas.drawText(String.format(Locale.US, "Utilidade: %.2f | Decisão: %s", 
+                jogo.getUtilidadeEsq(), jogo.getÚltimaDecisaoEsq()), padding, 205, paintIA);
+
         if (penEsq > 0) {
             paintHUD.setColor(Color.RED);
-            canvas.drawText("Penalidade: +" + (int)(penEsq * 100) + "% delay", padding, 205, paintHUD);
+            canvas.drawText("Penalidade: +" + (int)(penEsq * 100) + "% delay", padding, 245, paintHUD);
         }
 
         // Lado Direito
@@ -200,9 +210,14 @@ public class JogoView extends View {
         canvas.drawRect(xDir - (larguraBarra * energiaDir / 100f), 115, xDir, 115 + alturaBarra, paintBarraEnergia);
         canvas.drawText("Energia: " + energiaDir + "%", xDir, 165, paintHUD);
 
+        // IA AV2 (Direita)
+        paintIA.setTextAlign(Paint.Align.RIGHT);
+        canvas.drawText(String.format(Locale.US, "Utilidade: %.2f | Decisão: %s", 
+                jogo.getUtilidadeDir(), jogo.getÚltimaDecisaoDir()), xDir, 205, paintIA);
+
         if (penDir > 0) {
             paintHUD.setColor(Color.RED);
-            canvas.drawText("Penalidade: +" + (int)(penDir * 100) + "% delay", xDir, 205, paintHUD);
+            canvas.drawText("Penalidade: +" + (int)(penDir * 100) + "% delay", xDir, 245, paintHUD);
         }
 
         // HUD AV2: Informações de Reconciliação (Centro Inferior)
