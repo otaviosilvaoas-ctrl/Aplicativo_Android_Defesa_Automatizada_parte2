@@ -1,0 +1,60 @@
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/black">
+
+    <LinearLayout
+        android:id="@+id/topBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:background="@color/dark_gray"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:padding="10dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <TextView
+            android:id="@+id/status_text"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Aguardando Canhão..."
+            android:textColor="@color/white"
+            android:textSize="16sp" />
+
+        <TextView
+            android:id="@+id/timer_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="60s"
+            android:textColor="#FFEB3B"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:layout_marginEnd="10dp"/>
+
+        <Button
+            android:id="@+id/add_cannon_button"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:layout_marginStart="10dp"
+            android:text="Adicionar Canhão"
+            android:textSize="12sp" />
+    </LinearLayout>
+
+    <com.example.autotarget.JogoView
+        android:id="@+id/jogo_view"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="@color/black"
+        app:layout_constraintTop_toBottomOf="@id/topBar"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
