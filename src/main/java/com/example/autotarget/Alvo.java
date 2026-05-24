@@ -58,7 +58,14 @@ public abstract class Alvo implements Runnable {
     @Override
     public void run() {
         while (ativo && !Thread.currentThread().isInterrupted()) {
+            // T1: Monitoramento de Movimentação dos Alvos
+            long startTime = System.currentTimeMillis();
+            RealTimeScheduler.startTask("T1");
+            
             mover();
+            
+            RealTimeScheduler.endTask("T1", startTime);
+
             try {
                 Thread.sleep(16); 
             } catch (InterruptedException e) {

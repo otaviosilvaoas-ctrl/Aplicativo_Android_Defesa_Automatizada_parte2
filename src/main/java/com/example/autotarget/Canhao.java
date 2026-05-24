@@ -9,7 +9,7 @@ import java.util.ArrayList;
  */
 public class Canhao implements Runnable {
     private double x, y;
-    private double targetX, targetY; // AV2: Posição alvo para movimentação suave
+    private double targetX, targetY; 
     private double angulo;
     private final List<Projetil> projeteis;
     private boolean ativo;
@@ -18,7 +18,7 @@ public class Canhao implements Runnable {
     
     private static final double VELOCIDADE_PROJETIL = 18;
     private static final int INTERVALO_DE_DISPARO_BASE = 700;
-    private static final double VELOCIDADE_MOVIMENTO = 2.0; // Pixels por ciclo
+    private static final double VELOCIDADE_MOVIMENTO = 2.0; 
 
     public Canhao(double x, double y, Jogo jogo, int id) {
         this.x = x;
@@ -31,17 +31,11 @@ public class Canhao implements Runnable {
         this.ativo = true;
     }
 
-    /**
-     * Define uma nova posição para o canhão se mover gradualmente.
-     */
     public synchronized void setPosicaoObjetivo(double tx, double ty) {
         this.targetX = tx;
         this.targetY = ty;
     }
 
-    /**
-     * Move o canhão suavemente em direção à posição objetivo.
-     */
     private void atualizarMovimento() {
         double dx = targetX - x;
         double dy = targetY - y;
@@ -56,9 +50,6 @@ public class Canhao implements Runnable {
         }
     }
 
-    /**
-     * Mira apenas nos alvos que estão no mesmo lado da tela que o canhão.
-     */
     public synchronized void mirar() {
         List<Alvo> alvos = jogo.getAlvos();
         Alvo alvoMaisProximo = null;
@@ -101,28 +92,34 @@ public class Canhao implements Runnable {
     @Override
     public void run() {
         long lastShot = 0;
+        String taskId = (this.x < jogo.getLarguraTela() / 2.0) ? "T2" : "T3";
+
         while (ativo && !Thread.currentThread().isInterrupted()) {
             atualizarMovimento();
             mirar();
             
             long now = System.currentTimeMillis();
-            
-            // AV2: Calcula penalidade por excesso de canhões
             boolean esquerda = this.x < (jogo.getLarguraTela() / 2.0);
             double penalidade = jogo.getPenalidadeLado(esquerda);
             long intervaloFinal = (long) (INTERVALO_DE_DISPARO_BASE * (1 + penalidade));
 
             if (now - lastShot >= intervaloFinal) {
+                // T2/T3: Monitoramento de Disparo
+                long startTime = System.currentTimeMillis();
+                RealTimeScheduler.startTask(taskId);
+                
                 try {
                     disparar();
                     lastShot = now;
                 } catch (JogoException e) {
                     e.printStackTrace();
                 }
+                
+                RealTimeScheduler.endTask(taskId, startTime);
             }
 
             try {
-                Thread.sleep(20); // Ciclo de atualização de 50 FPS
+                Thread.sleep(20); 
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 break;
@@ -150,7 +147,7 @@ public class Canhao implements Runnable {
     public void mover(double nx, double ny, double na) { 
         this.x = nx; 
         this.y = ny; 
-        this.targetX = nx; // Atualiza objetivo se for via UI
+        this.targetX = nx;
         this.targetY = ny;
         this.angulo = na; 
     }

@@ -27,6 +27,7 @@ public class JogoView extends View {
     private Paint paintDivisoria;
     private Paint paintRec;
     private Paint paintIA;
+    private Paint paintRT;
     private boolean podeDesenhar;
 
     private long lastTime = 0;
@@ -93,6 +94,10 @@ public class JogoView extends View {
         paintIA.setTextSize(24);
         paintIA.setColor(Color.YELLOW);
 
+        paintRT = new Paint(Paint.ANTI_ALIAS_FLAG);
+        paintRT.setTextSize(20);
+        paintRT.setColor(0xFFAAAAAA);
+
         podeDesenhar = true;
     }
 
@@ -108,8 +113,15 @@ public class JogoView extends View {
 
     @Override
     protected void onDraw(Canvas canvas) {
+        // T5: UI / Renderização
+        long startTime = System.currentTimeMillis();
+        RealTimeScheduler.startTask("T5");
+
         super.onDraw(canvas);
-        if (jogo == null || !podeDesenhar) return;
+        if (jogo == null || !podeDesenhar) {
+            RealTimeScheduler.endTask("T5", startTime);
+            return;
+        }
 
         // Cálculo de FPS
         long now = System.currentTimeMillis();
@@ -119,6 +131,8 @@ public class JogoView extends View {
             frameCount = 0;
             lastTime = now;
             GerenciadorMetricas.registrarFPS(currentFps);
+            // Log periódico de escalonamento no console
+            if (GerenciadorMetricas.DEBUG) RealTimeScheduler.logReport();
         }
 
         canvas.drawColor(Color.BLACK);
@@ -161,6 +175,7 @@ public class JogoView extends View {
 
         desenharHUD(canvas);
 
+        RealTimeScheduler.endTask("T5", startTime);
         invalidate();
     }
 
@@ -184,7 +199,6 @@ public class JogoView extends View {
         canvas.drawRect(padding, 115, padding + (larguraBarra * energiaEsq / 100f), 115 + alturaBarra, paintBarraEnergia);
         canvas.drawText("Energia: " + energiaEsq + "%", padding, 165, paintHUD);
         
-        // IA AV2 (Esquerda)
         paintIA.setTextAlign(Paint.Align.LEFT);
         canvas.drawText(String.format(Locale.US, "Utilidade: %.2f | Decisão: %s", 
                 jogo.getUtilidadeEsq(), jogo.getÚltimaDecisaoEsq()), padding, 205, paintIA);
@@ -210,7 +224,6 @@ public class JogoView extends View {
         canvas.drawRect(xDir - (larguraBarra * energiaDir / 100f), 115, xDir, 115 + alturaBarra, paintBarraEnergia);
         canvas.drawText("Energia: " + energiaDir + "%", xDir, 165, paintHUD);
 
-        // IA AV2 (Direita)
         paintIA.setTextAlign(Paint.Align.RIGHT);
         canvas.drawText(String.format(Locale.US, "Utilidade: %.2f | Decisão: %s", 
                 jogo.getUtilidadeDir(), jogo.getÚltimaDecisaoDir()), xDir, 205, paintIA);
@@ -220,24 +233,30 @@ public class JogoView extends View {
             canvas.drawText("Penalidade: +" + (int)(penDir * 100) + "% delay", xDir, 245, paintHUD);
         }
 
-        // HUD AV2: Informações de Reconciliação (Centro Inferior)
-        paintRec.setTextAlign(Paint.Align.CENTER);
-        String infoRec = String.format(Locale.US, "Rec. Ativa | Erro: %.2f -> %.2f | Leituras: %d", 
-                jogo.getErroRecAntes(), jogo.getErroRecDepois(), jogo.getLeiturasRecUsadas());
-        canvas.drawText(infoRec, getWidth() / 2f, getHeight() - 50, paintRec);
+        // HUD AV2: Monitoramento de Tempo Real (Centro Inferior)
+        paintRT.setTextAlign(Paint.Align.CENTER);
+        int missed = RealTimeScheduler.getTotalDeadlinesMissed();
+        TaskMetrics t4 = RealTimeScheduler.getMetrics("T4");
+        double avgLoop = t4 != null ? t4.getAverageCi() : 0;
+        int activeThreads = jogo.getAlvos().size() + jogo.getCanhoes().size() + 5; // Estimativa
 
-        // Centro/Logs
+        String rtInfo = String.format(Locale.US, "FPS: %d | Threads: %d | Deadlines Perdidos: %d | Loop Médio: %.1fms", 
+                currentFps, activeThreads, missed, avgLoop);
+        canvas.drawText(rtInfo, getWidth() / 2f, getHeight() - 25, paintRT);
+
+        // Reconciliação
+        paintRec.setTextAlign(Paint.Align.CENTER);
+        String infoRec = String.format(Locale.US, "Rec. Ativa | Erro: %.2f -> %.2f | Cores: %d", 
+                jogo.getErroRecAntes(), jogo.getErroRecDepois(), RealTimeScheduler.getNumCores());
+        canvas.drawText(infoRec, getWidth() / 2f, getHeight() - 55, paintRec);
+
+        // Logs
         paintHUD.setTextAlign(Paint.Align.CENTER);
         paintHUD.setColor(Color.GRAY);
         paintHUD.setTextSize(25);
         List<String> logs = jogo.getLogsTela();
         for (int i = 0; i < logs.size(); i++) {
             canvas.drawText(logs.get(i), getWidth()/2f, getHeight() - 150 - (i * 35), paintHUD);
-        }
-
-        if (GerenciadorMetricas.DEBUG) {
-            paintHUD.setColor(Color.YELLOW);
-            canvas.drawText("FPS: " + currentFps, getWidth()/2f, 40, paintHUD);
         }
     }
 

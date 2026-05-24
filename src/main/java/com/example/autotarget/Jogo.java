@@ -71,7 +71,10 @@ public class Jogo implements Runnable {
     @Override
     public void run() {
         while (emExecucao && !Thread.currentThread().isInterrupted()) {
-            long inicio = System.currentTimeMillis();
+            // T4: Verificação de Colisões
+            long startTimeCol = System.currentTimeMillis();
+            RealTimeScheduler.startTask("T4");
+            
             try {
                 verificarColisoes();
                 
@@ -83,8 +86,13 @@ public class Jogo implements Runnable {
                     GerenciadorMetricas.logEstado(alvos.size(), canhoes.size(), numProjeteis);
                 }
 
-                long fim = System.currentTimeMillis();
-                GerenciadorMetricas.registrarTempoLoop(fim - inicio);
+                RealTimeScheduler.endTask("T4", startTimeCol);
+
+                // T8: Gerenciamento de Energia e Penalidades (Aproximado pelo Game Loop)
+                long startTimeEnergy = System.currentTimeMillis();
+                RealTimeScheduler.startTask("T8");
+                // Lógica de T8 já está distribuída, aqui apenas monitoramos a frequência do ciclo de controle
+                RealTimeScheduler.endTask("T8", startTimeEnergy);
 
                 Thread.sleep(20); 
             } catch (InterruptedException e) {
@@ -162,7 +170,6 @@ public class Jogo implements Runnable {
 
     private void iniciarReconciliacao() {
         reconciliationScheduler = Executors.newSingleThreadScheduledExecutor();
-        // Ciclo de 10 segundos para Reconciliação + Decisão IA
         reconciliationScheduler.scheduleWithFixedDelay(this::processarReconciliacaoEDecisao, 10, 10, TimeUnit.SECONDS);
     }
 
@@ -174,10 +181,14 @@ public class Jogo implements Runnable {
 
     private void processarReconciliacaoEDecisao() {
         if (!emExecucao) return;
-        GerenciadorMetricas.log("SISTEMA", "Ciclo de Otimização e Decisão IA iniciado");
+        // T7: Reconciliação e Otimização
+        long startTime = System.currentTimeMillis();
+        RealTimeScheduler.startTask("T7");
         
         otimizarEDecidirLado(true);  // Esquerda
         otimizarEDecidirLado(false); // Direita
+        
+        RealTimeScheduler.endTask("T7", startTime);
     }
 
     private void otimizarEDecidirLado(boolean esquerda) {
@@ -204,7 +215,6 @@ public class Jogo implements Runnable {
         int nCanhoes = canhoesLado.size();
         int nAlvos = alvosLado.size();
 
-        // 1. RECONCILIAÇÃO (Se houver elementos suficientes)
         if (nCanhoes > 0 && nAlvos > 0) {
             int nVar = nCanhoes * nAlvos;
             double[] y = new double[nVar];
@@ -239,7 +249,6 @@ public class Jogo implements Runnable {
 
             yHat = DataReconciliation.reconcile(y, V, A);
 
-            // Atualiza métricas de erro para o HUD
             if (esquerda) {
                 double erro = 0;
                 double[] Ay = MatrixMath.multiply(A, y);
@@ -253,7 +262,6 @@ public class Jogo implements Runnable {
                 leiturasReconciliacaoUsadas = nVar;
             }
 
-            // Otimização de Posicionamento (Movimentação Gradual)
             idx = 0;
             for (Canhao c : canhoesLado) {
                 double somaX = 0, somaY = 0, pesoTotal = 0;
@@ -267,7 +275,6 @@ public class Jogo implements Runnable {
                 if (pesoTotal > 0) {
                     double targetX = somaX / pesoTotal;
                     double targetY = somaY / pesoTotal;
-                    // Respeita os limites do lado
                     if (esquerda) targetX = Math.min(targetX, centroX - 100);
                     else targetX = Math.max(targetX, centroX + 100);
                     c.setPosicaoObjetivo(targetX, targetY);
@@ -275,7 +282,6 @@ public class Jogo implements Runnable {
             }
         }
 
-        // 2. TOMADA DE DECISÃO (Função de Utilidade)
         double utilidadeAtual = calcularUtilidade(nCanhoes, nAlvos, esquerda, yHat);
         if (esquerda) utilidadeEsq = utilidadeAtual; else utilidadeDir = utilidadeAtual;
 
@@ -286,7 +292,6 @@ public class Jogo implements Runnable {
             executarAdicaoAutomatica(esquerda);
             if (esquerda) últimaDecisaoEsq = "ADICIONAR"; else últimaDecisaoDir = "ADICIONAR";
         } else if (nCanhoes > MIN_CANHOES_POR_LADO && (utilSeRemover > utilidadeAtual - LIMIAR_REMOCAO || getEnergiaLado(esquerda) < 10)) {
-            // Remove se a utilidade melhorar ou se a energia for crítica
             if (utilSeRemover > utilidadeAtual || getEnergiaLado(esquerda) < 10) {
                 executarRemocaoAutomatica(esquerda);
                 if (esquerda) últimaDecisaoEsq = "REMOVER"; else últimaDecisaoDir = "REMOVER";
@@ -298,35 +303,21 @@ public class Jogo implements Runnable {
         }
     }
 
-    /**
-     * Função de Utilidade: estima o benefício líquido de manter N canhões.
-     * Considera abates esperados, penalidades, energia e proximidade (yHat).
-     */
     private double calcularUtilidade(int nC, int nA, boolean esquerda, double[] yHat) {
         if (nC <= 0) return -1.0;
-        
-        // Penalidade AV2: +20% delay por canhão acima de 5
         double penalidade = nC > LIMITE_CANHOES_LADO ? (nC - LIMITE_CANHOES_LADO) * 0.2 : 0;
         double fatorEficienciaRecarga = 1.0 / (1.0 + penalidade);
-        
         int energia = getEnergiaLado(esquerda);
         double fatorEnergia = energia / 100.0;
-        
-        // Fator de Proximidade baseado na Reconciliação
-        double fatorProximidade = 0.5; // Valor base se não houver yHat
+        double fatorProximidade = 0.5;
         if (yHat != null && yHat.length > 0) {
             double somaInvDist = 0;
             for (double d : yHat) somaInvDist += 200.0 / Math.max(20.0, d);
             fatorProximidade = somaInvDist / (nC * Math.max(1, nA));
         }
-
-        // Estimativa de abates (Ganho)
         double ganhoAbates = (nC * nA * 0.08) * fatorEficienciaRecarga * (0.3 + 0.7 * fatorProximidade);
-        
-        // Custos (Penalidades e Recursos)
-        double custoOperacional = nC * 0.15; // Custo fixo por canhão (manutenção/threads)
-        double custoEnergia = (1.0 - fatorEnergia) * nC * 0.4; // Piora conforme energia acaba
-        
+        double custoOperacional = nC * 0.15;
+        double custoEnergia = (1.0 - fatorEnergia) * nC * 0.4;
         return ganhoAbates - (custoOperacional + custoEnergia);
     }
 
@@ -341,7 +332,7 @@ public class Jogo implements Runnable {
         double y = (alturaTela * 0.2) + r.nextDouble() * (alturaTela * 0.6);
         try {
             adicionarCanhao(x, y);
-        } catch (JogoException e) { /* limite atingido */ }
+        } catch (JogoException e) { }
     }
 
     private void executarRemocaoAutomatica(boolean esquerda) {

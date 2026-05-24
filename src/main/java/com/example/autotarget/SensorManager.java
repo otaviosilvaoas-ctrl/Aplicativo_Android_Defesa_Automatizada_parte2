@@ -28,7 +28,8 @@ public class SensorManager {
         if (scheduler != null && !scheduler.isShutdown()) return;
         
         scheduler = Executors.newSingleThreadScheduledExecutor();
-        scheduler.scheduleAtFixedRate(this::executarCicloColeta, 1, 1, TimeUnit.SECONDS);
+        // T6: Coleta dos sensores
+        scheduler.scheduleWithFixedDelay(this::executarCicloColeta, 1, 1, TimeUnit.SECONDS);
         GerenciadorMetricas.log("SENSOR", "Sistema de coleta iniciado");
     }
 
@@ -48,21 +49,22 @@ public class SensorManager {
     private void executarCicloColeta() {
         if (!jogo.isEmExecucao()) return;
 
+        // T6 Start
+        long startTime = System.currentTimeMillis();
+        RealTimeScheduler.startTask("T6");
+
         List<Alvo> alvos = jogo.getAlvos();
-        double centroX = jogo.getLarguraTela() / 2.0;
 
         for (Alvo alvo : alvos) {
             if (!alvo.isAtivo()) continue;
-
-            // AV2: Cada lado coleta apenas alvos em seu território
-            // (Simulado aqui através da verificação da posição atual do alvo)
-            double xReal = alvo.getX();
             
-            // Realiza a leitura se o alvo estiver visível para os sensores do sistema
             SensorReading leitura = gerarLeituraComRuido(alvo);
             alvo.adicionarLeitura(leitura);
             leiturasTotais.incrementAndGet();
         }
+
+        // T6 End
+        RealTimeScheduler.endTask("T6", startTime);
     }
 
     /**
