@@ -18,6 +18,9 @@ public class Jogo implements Runnable {
     private int abatesTotal;
     private Thread threadPrincipal;
     
+    private int larguraTela;
+    private int alturaTela;
+    
     // Executor para gerenciar threads de projéteis de forma eficiente
     private ExecutorService executorProjeteis;
 
@@ -47,6 +50,28 @@ public class Jogo implements Runnable {
     }
 
     /**
+     * Atualiza as dimensões da tela e propaga para os elementos existentes.
+     */
+    public void setDimensoes(int largura, int altura) {
+        this.larguraTela = largura;
+        this.alturaTela = altura;
+        
+        synchronized (LOCK_ALVOS) {
+            for (Alvo alvo : alvos) {
+                alvo.setLimitesTela(largura, altura);
+            }
+        }
+        
+        synchronized (LOCK_CANHOES) {
+            for (Canhao canhao : canhoes) {
+                for (Projetil p : canhao.getProjeteis()) {
+                    p.setLimitesTela(largura, altura);
+                }
+            }
+        }
+    }
+
+    /**
      * Inicia o jogo, ativando as threads de processamento e o pool de projéteis.
      */
     public synchronized void iniciar() throws JogoException {
@@ -65,6 +90,7 @@ public class Jogo implements Runnable {
                 }
                 for (Alvo alvo : alvos) {
                     alvo.setAtivo(true);
+                    alvo.setLimitesTela(larguraTela, alturaTela);
                     new Thread(alvo).start();
                 }
                 emExecucao = true;
@@ -112,24 +138,29 @@ public class Jogo implements Runnable {
      */
     public void dispararProjetil(Projetil p) {
         if (emExecucao && executorProjeteis != null && !executorProjeteis.isShutdown()) {
+            p.setLimitesTela(larguraTela, alturaTela);
             executorProjeteis.submit(p);
         }
     }
 
     private void criarAlvosIniciais() {
         Random random = new Random();
+        double w = larguraTela > 0 ? larguraTela : 1000;
+        double h = alturaTela > 0 ? alturaTela : 1000;
+        
         for (int i = 0; i < 3; i++) {
-            adicionarAlvo(new AlvoComum(random.nextDouble() * 800 + 100, 
-                          random.nextDouble() * 1500 + 100, 40, 5));
+            adicionarAlvo(new AlvoComum(random.nextDouble() * (w * 0.8) + (w * 0.1), 
+                          random.nextDouble() * (h * 0.8) + (h * 0.1), 40, 5));
         }
         for (int i = 0; i < 2; i++) {
-            adicionarAlvo(new AlvoRapido(random.nextDouble() * 800 + 100, 
-                          random.nextDouble() * 1500 + 100, 30, 8));
+            adicionarAlvo(new AlvoRapido(random.nextDouble() * (w * 0.8) + (w * 0.1), 
+                          random.nextDouble() * (h * 0.8) + (h * 0.1), 30, 8));
         }
     }
 
     private void adicionarAlvo(Alvo alvo) {
         synchronized (LOCK_ALVOS) {
+            alvo.setLimitesTela(larguraTela, alturaTela);
             alvos.add(alvo);
             if (emExecucao) {
                 alvo.setAtivo(true);
@@ -204,4 +235,7 @@ public class Jogo implements Runnable {
 
     public int getAbatesTotal() { return abatesTotal; }
     public boolean isEmExecucao() { return emExecucao; }
+    
+    public int getLarguraTela() { return larguraTela; }
+    public int getAlturaTela() { return alturaTela; }
 }

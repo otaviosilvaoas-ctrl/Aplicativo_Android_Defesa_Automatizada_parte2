@@ -9,8 +9,8 @@ public abstract class Alvo implements Runnable {
     protected double raio;
     protected double velocidade;
     protected boolean ativo;
-    protected int larguraTela = 1080;
-    protected int alturaTela = 1920;
+    protected int larguraTela;
+    protected int alturaTela;
 
     public Alvo(double x, double y, double raio, double velocidade) {
         this.x = x;

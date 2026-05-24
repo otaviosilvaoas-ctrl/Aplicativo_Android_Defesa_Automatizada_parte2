@@ -12,8 +12,8 @@ public class Projetil implements Runnable {
     private boolean ativo;
     
     // Limites de tela (serão atualizados dinamicamente pelo Jogo)
-    private int larguraTela = 1080;
-    private int alturaTela = 1920;
+    private int larguraTela;
+    private int alturaTela;
 
     public Projetil(double x, double y, double angulo, double velocidade) {
         this.x = x;
@@ -28,9 +28,11 @@ public class Projetil implements Runnable {
         x += velocidadeX;
         y += velocidadeY;
 
-        // Inativa o projétil se sair da tela
-        if (x < -raio || x > larguraTela + raio || y < -raio || y > alturaTela + raio) {
-            ativo = false;
+        // Inativa o projétil se sair da tela (usando limites dinâmicos)
+        if (larguraTela > 0 && alturaTela > 0) {
+            if (x < -raio || x > larguraTela + raio || y < -raio || y > alturaTela + raio) {
+                ativo = false;
+            }
         }
     }
 
