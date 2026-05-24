@@ -21,11 +21,9 @@ public class AlvoComum extends Alvo {
 
     @Override
     public void mover() {
-        // atualiza posição do alvo
         x += velocidadeX;
         y += velocidadeY;
 
-        // O alvo agora se move livremente por toda a largura da tela
         if (larguraTela > 0) {
             if (x - raio < 0) {
                 velocidadeX = Math.abs(velocidadeX);
@@ -36,7 +34,6 @@ public class AlvoComum extends Alvo {
             }
         }
 
-        // Verifica bordas verticais
         if (alturaTela > 0) {
             if (y - raio < 0) {
                 velocidadeY = Math.abs(velocidadeY);
@@ -47,6 +44,12 @@ public class AlvoComum extends Alvo {
             }
         }
     }
+
+    @Override
+    public double getVelocidadeX() { return velocidadeX; }
+
+    @Override
+    public double getVelocidadeY() { return velocidadeY; }
 
     public void mudarDirecao() {
         inicializarDirecao();

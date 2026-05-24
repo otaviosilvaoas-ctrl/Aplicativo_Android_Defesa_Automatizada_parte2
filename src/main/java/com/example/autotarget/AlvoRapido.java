@@ -8,18 +8,15 @@ public class AlvoRapido extends Alvo {
     private double velocidadeX;
     private double velocidadeY;
     private int contadorMudanca;
-    private static final int INTERVALO_MUDANCA = 100; // Muda direção a cada 100 ciclos
+    private static final int INTERVALO_MUDANCA = 100;
 
     public AlvoRapido(double x, double y, double raio, double velocidade) {
-        super(x, y, raio, velocidade * 1.5); // 50% mais rápido
+        super(x, y, raio, velocidade * 1.5);
         this.random = new Random();
         this.contadorMudanca = 0;
         inicializarDirecao();
     }
 
-    /**
-     * Inicializa a direção do movimento aleatoriamente.
-     */
     private void inicializarDirecao() {
         double angulo = random.nextDouble() * 2 * Math.PI;
         this.velocidadeX = velocidade * Math.cos(angulo);
@@ -34,11 +31,9 @@ public class AlvoRapido extends Alvo {
             contadorMudanca = 0;
         }
 
-        // Atualiza posição
         x += velocidadeX;
         y += velocidadeY;
 
-        // O alvo agora se move livremente por toda a largura da tela (sem restrição central)
         if (larguraTela > 0) {
             if (x - raio < 0) {
                 velocidadeX = Math.abs(velocidadeX);
@@ -49,7 +44,6 @@ public class AlvoRapido extends Alvo {
             }
         }
 
-        // Verifica colisão com as bordas verticais
         if (alturaTela > 0) {
             if (y - raio <= 0) {
                 velocidadeY = Math.abs(velocidadeY);
@@ -60,4 +54,10 @@ public class AlvoRapido extends Alvo {
             }
         }
     }
+
+    @Override
+    public double getVelocidadeX() { return velocidadeX; }
+
+    @Override
+    public double getVelocidadeY() { return velocidadeY; }
 }

@@ -27,10 +27,13 @@ public class Jogo implements Runnable {
     private int larguraTela;
     private int alturaTela;
     
-    // Recursos AV2: Energia por lado
+    // Recursos AV2
     private final AtomicInteger energiaEsquerda = new AtomicInteger(100);
     private final AtomicInteger energiaDireita = new AtomicInteger(100);
     public static final int LIMITE_CANHOES_LADO = 5;
+    
+    // Sensores AV2
+    private final SensorManager sensorManager;
     
     private ExecutorService executorProjeteis;
 
@@ -47,6 +50,7 @@ public class Jogo implements Runnable {
         this.abatesTotal = 0;
         this.abatesEsquerda = 0;
         this.abatesDireita = 0;
+        this.sensorManager = new SensorManager(this);
     }
 
     @Override
@@ -99,6 +103,7 @@ public class Jogo implements Runnable {
         executorProjeteis = Executors.newFixedThreadPool(POOL_PROJETEIS);
         energiaEsquerda.set(100);
         energiaDireita.set(100);
+        
         synchronized (LOCK_CANHOES) {
             synchronized (LOCK_ALVOS) {
                 for (Canhao canhao : canhoes) {
@@ -113,6 +118,8 @@ public class Jogo implements Runnable {
                 emExecucao = true;
             }
         }
+        
+        sensorManager.iniciarColeta();
         criarAlvosIniciais();
         threadPrincipal = new Thread(this);
         threadPrincipal.start();
@@ -121,6 +128,8 @@ public class Jogo implements Runnable {
 
     public synchronized void parar() {
         emExecucao = false;
+        sensorManager.pararColeta();
+        
         if (executorProjeteis != null) {
             executorProjeteis.shutdownNow();
         }
@@ -225,7 +234,9 @@ public class Jogo implements Runnable {
         }
     }
 
-    // Lógica de Recursos AV2
+    public SensorManager getSensorManager() { return sensorManager; }
+
+    // Recursos AV2
     public int getEnergiaEsquerda() { return energiaEsquerda.get(); }
     public int getEnergiaDireita() { return energiaDireita.get(); }
     

@@ -1,5 +1,9 @@
 package com.example.autotarget;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 /**
  * Classe abstrata Alvo que define o comportamento base.
  * Implementa Runnable para permitir execução em threads.
@@ -12,6 +16,10 @@ public abstract class Alvo implements Runnable {
     protected int larguraTela;
     protected int alturaTela;
 
+    // AV2: Buffer de leituras de sensor (Thread-safe)
+    private final List<SensorReading> bufferLeituras = Collections.synchronizedList(new ArrayList<>());
+    private static final int TAMANHO_MAX_BUFFER = 20;
+
     public Alvo(double x, double y, double raio, double velocidade) {
         this.x = x;
         this.y = y;
@@ -20,8 +28,9 @@ public abstract class Alvo implements Runnable {
         this.ativo = true;
     }
 
-    // Método polimórfico que define como cada alvo se move
     public abstract void mover();
+    public abstract double getVelocidadeX();
+    public abstract double getVelocidadeY();
 
     /**
      * Lógica de colisão otimizada.
@@ -34,12 +43,23 @@ public abstract class Alvo implements Runnable {
         return distanciaSq < raioSoma * raioSoma;
     }
 
+    // AV2: Métodos para o SensorManager
+    public void adicionarLeitura(SensorReading leitura) {
+        bufferLeituras.add(leitura);
+        if (bufferLeituras.size() > TAMANHO_MAX_BUFFER) {
+            bufferLeituras.remove(0);
+        }
+    }
+
+    public List<SensorReading> getHistoricoLeituras() {
+        return new ArrayList<>(bufferLeituras);
+    }
+
     @Override
     public void run() {
         while (ativo && !Thread.currentThread().isInterrupted()) {
             mover();
             try {
-                // Sleep reduzido para maior fluidez (aprox 60 FPS)
                 Thread.sleep(16); 
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
