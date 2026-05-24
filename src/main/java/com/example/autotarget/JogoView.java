@@ -10,7 +10,7 @@ import android.view.MotionEvent;
 import java.util.List;
 
 /**
- * View customizada que renderiza o jogo no Canvas com feedback visual melhorado.
+ * View customizada que renderiza o jogo no Canvas com feedback visual melhorado e HUD AV2.
  */
 public class JogoView extends View {
 
@@ -65,7 +65,7 @@ public class JogoView extends View {
 
         paintHUD = new Paint(Paint.ANTI_ALIAS_FLAG);
         paintHUD.setColor(Color.WHITE);
-        paintHUD.setTextSize(40);
+        paintHUD.setTextSize(35);
 
         paintBarraFundo = new Paint();
         paintBarraFundo.setColor(Color.DKGRAY);
@@ -74,14 +74,13 @@ public class JogoView extends View {
         paintBarraEnergia.setColor(Color.GREEN);
 
         paintLegenda = new Paint(Paint.ANTI_ALIAS_FLAG);
-        paintLegenda.setTextSize(30);
+        paintLegenda.setTextSize(25);
         paintLegenda.setColor(Color.WHITE);
 
         paintDivisoria = new Paint(Paint.ANTI_ALIAS_FLAG);
         paintDivisoria.setColor(Color.WHITE);
-        paintDivisoria.setAlpha(120);
-        paintDivisoria.setStrokeWidth(4);
-        paintDivisoria.setStyle(Paint.Style.STROKE);
+        paintDivisoria.setAlpha(80);
+        paintDivisoria.setStrokeWidth(2);
 
         podeDesenhar = true;
     }
@@ -101,6 +100,7 @@ public class JogoView extends View {
         super.onDraw(canvas);
         if (jogo == null || !podeDesenhar) return;
 
+        // Cálculo de FPS
         long now = System.currentTimeMillis();
         frameCount++;
         if (now - lastTime >= 1000) {
@@ -112,7 +112,6 @@ public class JogoView extends View {
 
         canvas.drawColor(Color.BLACK);
 
-        // Desenha Linha de Divisão Central
         float centroX = getWidth() / 2f;
         canvas.drawLine(centroX, 0, centroX, getHeight(), paintDivisoria);
 
@@ -149,50 +148,77 @@ public class JogoView extends View {
             }
         }
 
-        // HUD - Placar e Logs
-        paintHUD.setColor(Color.WHITE);
-        paintHUD.setTextSize(50);
-        canvas.drawText("ABATES: " + jogo.getAbatesTotal(), 50, 80, paintHUD);
-
-        desenharLegenda(canvas);
-
-        // Logs de tela
-        paintHUD.setTextSize(35);
-        paintHUD.setColor(Color.LTGRAY);
-        List<String> logs = jogo.getLogsTela();
-        for (int i = 0; i < logs.size(); i++) {
-            canvas.drawText("> " + logs.get(i), 50, 150 + (i * 45), paintHUD);
-        }
-
-        if (GerenciadorMetricas.DEBUG) {
-            paintHUD.setColor(Color.YELLOW);
-            canvas.drawText("FPS: " + currentFps, 50, getHeight() - 50, paintHUD);
-        }
+        desenharHUD(canvas);
 
         invalidate();
     }
 
-    private void desenharLegenda(Canvas canvas) {
-        float xBase = getWidth() - 220;
-        float yBase = 60;
-        float raioLegenda = 15;
+    private void desenharHUD(Canvas canvas) {
+        float padding = 30;
+        float larguraBarra = 200;
+        float alturaBarra = 20;
 
-        paintAlvo.setColor(Color.YELLOW);
-        canvas.drawCircle(xBase, yBase, raioLegenda, paintAlvo);
-        paintLegenda.setColor(Color.WHITE);
-        canvas.drawText("Rápido", xBase + 30, yBase + 10, paintLegenda);
+        // Lado Esquerdo
+        int energiaEsq = jogo.getEnergiaEsquerda();
+        int qtdEsq = jogo.getQtdCanhoesLado(true);
+        double penEsq = jogo.getPenalidadeLado(true);
+        
+        paintHUD.setTextAlign(Paint.Align.LEFT);
+        paintHUD.setColor(Color.WHITE);
+        canvas.drawText("ESQUERDA: " + jogo.getAbatesEsquerda() + " Abates", padding, 60, paintHUD);
+        canvas.drawText("Canhões: " + qtdEsq, padding, 100, paintHUD);
+        
+        canvas.drawRect(padding, 115, padding + larguraBarra, 115 + alturaBarra, paintBarraFundo);
+        paintBarraEnergia.setColor(energiaEsq > 30 ? Color.GREEN : Color.RED);
+        canvas.drawRect(padding, 115, padding + (larguraBarra * energiaEsq / 100f), 115 + alturaBarra, paintBarraEnergia);
+        canvas.drawText("Energia: " + energiaEsq + "%", padding, 165, paintHUD);
+        
+        if (penEsq > 0) {
+            paintHUD.setColor(Color.RED);
+            canvas.drawText("Penalidade: +" + (int)(penEsq * 100) + "% delay", padding, 205, paintHUD);
+        }
 
-        paintAlvo.setColor(Color.BLUE);
-        canvas.drawCircle(xBase, yBase + 50, raioLegenda, paintAlvo);
-        paintLegenda.setColor(Color.WHITE);
-        canvas.drawText("Lento", xBase + 30, yBase + 60, paintLegenda);
+        // Lado Direito
+        int energiaDir = jogo.getEnergiaDireita();
+        int qtdDir = jogo.getQtdCanhoesLado(false);
+        double penDir = jogo.getPenalidadeLado(false);
+        float xDir = getWidth() - padding;
+
+        paintHUD.setTextAlign(Paint.Align.RIGHT);
+        paintHUD.setColor(Color.WHITE);
+        canvas.drawText("DIREITA: " + jogo.getAbatesDireita() + " Abates", xDir, 60, paintHUD);
+        canvas.drawText("Canhões: " + qtdDir, xDir, 100, paintHUD);
+
+        canvas.drawRect(xDir - larguraBarra, 115, xDir, 115 + alturaBarra, paintBarraFundo);
+        paintBarraEnergia.setColor(energiaDir > 30 ? Color.GREEN : Color.RED);
+        canvas.drawRect(xDir - (larguraBarra * energiaDir / 100f), 115, xDir, 115 + alturaBarra, paintBarraEnergia);
+        canvas.drawText("Energia: " + energiaDir + "%", xDir, 165, paintHUD);
+
+        if (penDir > 0) {
+            paintHUD.setColor(Color.RED);
+            canvas.drawText("Penalidade: +" + (int)(penDir * 100) + "% delay", xDir, 205, paintHUD);
+        }
+
+        // Centro/Logs
+        paintHUD.setTextAlign(Paint.Align.CENTER);
+        paintHUD.setColor(Color.GRAY);
+        paintHUD.setTextSize(25);
+        List<String> logs = jogo.getLogsTela();
+        for (int i = 0; i < logs.size(); i++) {
+            canvas.drawText(logs.get(i), getWidth()/2f, getHeight() - 100 - (i * 35), paintHUD);
+        }
+
+        if (GerenciadorMetricas.DEBUG) {
+            paintHUD.setColor(Color.YELLOW);
+            canvas.drawText("FPS: " + currentFps, getWidth()/2f, 40, paintHUD);
+        }
     }
 
     private void drawCanhaoComFeedback(Canvas canvas, Canhao canhao) {
         float x = (float) canhao.getX();
         float y = (float) canhao.getY();
         float ang = (float) canhao.getAngulo();
-        float tam = 50;
+        float tam = 45;
 
         float x1 = x + tam * (float) Math.cos(ang);
         float y1 = y + tam * (float) Math.sin(ang);
@@ -201,23 +227,15 @@ public class JogoView extends View {
         float x3 = x + tam * (float) Math.cos(ang + 4.189);
         float y3 = y + tam * (float) Math.sin(ang + 4.189);
 
+        paintCanhao.setColor(x < getWidth()/2f ? Color.GREEN : Color.CYAN);
         canvas.drawLine(x1, y1, x2, y2, paintCanhao);
         canvas.drawLine(x2, y2, x3, y3, paintCanhao);
         canvas.drawLine(x3, y3, x1, y1, paintCanhao);
-        canvas.drawCircle(x, y, 15, paintCanhao);
+        canvas.drawCircle(x, y, 12, paintCanhao);
 
-        paintTexto.setColor(Color.GREEN);
-        paintTexto.setTextSize(30);
-        paintTexto.setTextAlign(Paint.Align.CENTER);
-        canvas.drawText("C" + canhao.getId(), x, y - 65, paintTexto);
-
-        float larguraBarra = 80;
-        float alturaBarra = 10;
-        float porcentagem = (float) canhao.getEnergia() / canhao.getEnergiaMaxima();
-        
-        canvas.drawRect(x - larguraBarra/2, y + 60, x + larguraBarra/2, y + 60 + alturaBarra, paintBarraFundo);
-        paintBarraEnergia.setColor(porcentagem > 0.3f ? Color.GREEN : Color.RED);
-        canvas.drawRect(x - larguraBarra/2, y + 60, x - larguraBarra/2 + (larguraBarra * porcentagem), y + 60 + alturaBarra, paintBarraEnergia);
+        paintTexto.setColor(Color.WHITE);
+        paintTexto.setTextSize(25);
+        canvas.drawText("C" + canhao.getId(), x, y - 55, paintTexto);
     }
 
     @Override
@@ -228,7 +246,7 @@ public class JogoView extends View {
             double menorDist = Double.MAX_VALUE;
             for (Canhao c : jogo.getCanhoes()) {
                 double d = Math.hypot(event.getX() - c.getX(), event.getY() - c.getY());
-                if (d < 300 && d < menorDist) {
+                if (d < 250 && d < menorDist) {
                     menorDist = d;
                     selecionado = c;
                 }

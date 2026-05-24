@@ -38,28 +38,14 @@ public class AlvoRapido extends Alvo {
         x += velocidadeX;
         y += velocidadeY;
 
-        double centro = larguraTela / 2.0;
-
+        // O alvo agora se move livremente por toda a largura da tela (sem restrição central)
         if (larguraTela > 0) {
-            // Lógica de colisão com a linha central e bordas laterais (mantendo o alvo no seu lado original)
-            if (x < centro) {
-                // Lado ESQUERDO
-                if (x - raio < 0) {
-                    velocidadeX = Math.abs(velocidadeX);
-                    x = raio;
-                } else if (x + raio > centro) {
-                    velocidadeX = -Math.abs(velocidadeX);
-                    x = centro - raio;
-                }
-            } else {
-                // Lado DIREITO
-                if (x - raio < centro) {
-                    velocidadeX = Math.abs(velocidadeX);
-                    x = centro + raio;
-                } else if (x + raio > larguraTela) {
-                    velocidadeX = -Math.abs(velocidadeX);
-                    x = larguraTela - raio;
-                }
+            if (x - raio < 0) {
+                velocidadeX = Math.abs(velocidadeX);
+                x = raio;
+            } else if (x + raio > larguraTela) {
+                velocidadeX = -Math.abs(velocidadeX);
+                x = larguraTela - raio;
             }
         }
 

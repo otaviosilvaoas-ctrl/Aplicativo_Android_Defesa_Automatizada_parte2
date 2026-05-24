@@ -25,29 +25,14 @@ public class AlvoComum extends Alvo {
         x += velocidadeX;
         y += velocidadeY;
 
-        double centro = larguraTela / 2.0;
-
-        // Se larguraTela ainda não foi definida (0), usa comportamento padrão
+        // O alvo agora se move livremente por toda a largura da tela
         if (larguraTela > 0) {
-            // Lógica de colisão com a linha central e bordas laterais
-            if (x < centro) {
-                // Alvo no lado ESQUERDO
-                if (x - raio < 0) {
-                    velocidadeX = Math.abs(velocidadeX);
-                    x = raio;
-                } else if (x + raio > centro) {
-                    velocidadeX = -Math.abs(velocidadeX);
-                    x = centro - raio;
-                }
-            } else {
-                // Alvo no lado DIREITO
-                if (x - raio < centro) {
-                    velocidadeX = Math.abs(velocidadeX);
-                    x = centro + raio;
-                } else if (x + raio > larguraTela) {
-                    velocidadeX = -Math.abs(velocidadeX);
-                    x = larguraTela - raio;
-                }
+            if (x - raio < 0) {
+                velocidadeX = Math.abs(velocidadeX);
+                x = raio;
+            } else if (x + raio > larguraTela) {
+                velocidadeX = -Math.abs(velocidadeX);
+                x = larguraTela - raio;
             }
         }
 

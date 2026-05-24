@@ -14,35 +14,43 @@ public class Canhao implements Runnable {
     private boolean ativo;
     private final Jogo jogo;
     private final int id;
-    private int energia;
     
     private static final double VELOCIDADE_PROJETIL = 18;
-    private static final int INTERVALO_DE_DISPARO = 700;
-    private static final int ENERGIA_MAXIMA = 100;
+    private static final int INTERVALO_DE_DISPARO_BASE = 700;
 
     public Canhao(double x, double y, Jogo jogo, int id) {
         this.x = x;
         this.y = y;
         this.jogo = jogo;
         this.id = id;
-        this.energia = ENERGIA_MAXIMA;
         this.projeteis = new ArrayList<>();
         this.ativo = true;
     }
 
+    /**
+     * Mira apenas nos alvos que estão no mesmo lado da tela que o canhão.
+     */
     public synchronized void mirar() {
         List<Alvo> alvos = jogo.getAlvos();
         Alvo alvoMaisProximo = null;
         double menorDistanciaSq = Double.MAX_VALUE;
+        
+        double centroX = jogo.getLarguraTela() / 2.0;
+        boolean canhaoLadoEsquerdo = this.x < centroX;
 
         for (Alvo a : alvos) {
             if (a.isAtivo()) {
-                double dx = a.getX() - this.x;
-                double dy = a.getY() - this.y;
-                double distSq = dx * dx + dy * dy;
-                if (distSq < menorDistanciaSq) {
-                    menorDistanciaSq = distSq;
-                    alvoMaisProximo = a;
+                boolean alvoLadoEsquerdo = a.getX() < centroX;
+                
+                // Só mira se o alvo estiver no mesmo lado que o canhão
+                if (canhaoLadoEsquerdo == alvoLadoEsquerdo) {
+                    double dx = a.getX() - this.x;
+                    double dy = a.getY() - this.y;
+                    double distSq = dx * dx + dy * dy;
+                    if (distSq < menorDistanciaSq) {
+                        menorDistanciaSq = distSq;
+                        alvoMaisProximo = a;
+                    }
                 }
             }
         }
@@ -53,19 +61,18 @@ public class Canhao implements Runnable {
     }
 
     /**
-     * Cria um novo projetil e solicita ao jogo que o execute usando o pool de threads.
+     * Cria um novo projetil se houver energia disponível no seu lado.
      */
     public void disparar() throws JogoException {
         if (!ativo) return;
         
-        // Simulação de consumo de energia
-        if (energia > 0) {
+        // AV2: Consome energia do lado correspondente. Se não houver, não dispara.
+        if (jogo.consumirEnergia(this.x)) {
             Projetil p = new Projetil(x, y, angulo, VELOCIDADE_PROJETIL);
             synchronized (projeteis) {
                 projeteis.add(p);
             }
             jogo.dispararProjetil(p);
-            // energia -= 1; // Opcional: descomentar para habilitar consumo
         }
     }
 
@@ -75,7 +82,13 @@ public class Canhao implements Runnable {
             mirar();
             try {
                 disparar();
-                Thread.sleep(INTERVALO_DE_DISPARO);
+                
+                // AV2: Calcula penalidade por excesso de canhões
+                boolean esquerda = this.x < (jogo.getLarguraTela() / 2.0);
+                double penalidade = jogo.getPenalidadeLado(esquerda);
+                long intervaloFinal = (long) (INTERVALO_DE_DISPARO_BASE * (1 + penalidade));
+                
+                Thread.sleep(intervaloFinal);
             } catch (JogoException e) {
                 e.printStackTrace();
             } catch (InterruptedException e) {
@@ -104,6 +117,6 @@ public class Canhao implements Runnable {
     public void setAtivo(boolean ativo) { this.ativo = ativo; }
     public void mover(double nx, double ny, double na) { this.x = nx; this.y = ny; this.angulo = na; }
     public int getId() { return id; }
-    public int getEnergia() { return energia; }
-    public int getEnergiaMaxima() { return ENERGIA_MAXIMA; }
+    
+    // Removidos métodos de energia interna pois agora a energia é gerenciada pelo Jogo (por lado)
 }

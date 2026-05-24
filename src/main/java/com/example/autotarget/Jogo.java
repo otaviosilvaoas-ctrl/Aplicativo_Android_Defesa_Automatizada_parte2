@@ -7,6 +7,7 @@ import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Classe principal que gerencia a lógica do jogo.
@@ -25,6 +26,11 @@ public class Jogo implements Runnable {
     
     private int larguraTela;
     private int alturaTela;
+    
+    // Recursos AV2: Energia por lado
+    private final AtomicInteger energiaEsquerda = new AtomicInteger(100);
+    private final AtomicInteger energiaDireita = new AtomicInteger(100);
+    public static final int LIMITE_CANHOES_LADO = 5;
     
     private ExecutorService executorProjeteis;
 
@@ -91,6 +97,8 @@ public class Jogo implements Runnable {
     public synchronized void iniciar() throws JogoException {
         if (emExecucao) throw new JogoException("Jogo já está em execução");
         executorProjeteis = Executors.newFixedThreadPool(POOL_PROJETEIS);
+        energiaEsquerda.set(100);
+        energiaDireita.set(100);
         synchronized (LOCK_CANHOES) {
             synchronized (LOCK_ALVOS) {
                 for (Canhao canhao : canhoes) {
@@ -159,29 +167,19 @@ public class Jogo implements Runnable {
 
     public void adicionarCanhao(double x, double y) throws JogoException {
         synchronized (LOCK_CANHOES) {
-            if (canhoes.size() >= 10) throw new JogoException("Máximo de 10 canhões atingido");
+            if (canhoes.size() >= 20) throw new JogoException("Máximo de 20 canhões atingido");
             
-            // Lógica para evitar a linha central (divisória)
             double centro = larguraTela / 2.0;
-            double margemSeguranca = 80.0; // Margem para o canhão não tocar a linha
+            double margemSeguranca = 80.0;
             
             if (Math.abs(x - centro) < margemSeguranca) {
-                // Se o spawn cair na linha, empurra para o lado mais próximo
-                if (x < centro) {
-                    x = centro - margemSeguranca;
-                } else {
-                    x = centro + margemSeguranca;
-                }
+                x = (x < centro) ? centro - margemSeguranca : centro + margemSeguranca;
             }
 
-            // Evitar sobreposição com outros canhões
             for (Canhao existente : canhoes) {
                 if (Math.hypot(x - existente.getX(), y - existente.getY()) < DISTANCIA_MINIMA_CANHOES) {
-                    // Tenta mover o novo canhão, mas mantém a verificação da linha central
                     x += 160;
-                    if (Math.abs(x - centro) < margemSeguranca) {
-                        x = centro + margemSeguranca;
-                    }
+                    if (Math.abs(x - centro) < margemSeguranca) x = centro + margemSeguranca;
                 }
             }
 
@@ -208,12 +206,8 @@ public class Jogo implements Runnable {
                                 projetil.setAtivo(false);
                                 abatesTotal++;
                                 
-                                // Determina o lado do abate
-                                if (alvo.getX() < larguraTela / 2.0) {
-                                    abatesEsquerda++;
-                                } else {
-                                    abatesDireita++;
-                                }
+                                if (alvo.getX() < larguraTela / 2.0) abatesEsquerda++;
+                                else abatesDireita++;
                                 
                                 GerenciadorMetricas.registrarColisao();
                                 adicionarLog("Alvo destruído!");
@@ -231,6 +225,37 @@ public class Jogo implements Runnable {
         }
     }
 
+    // Lógica de Recursos AV2
+    public int getEnergiaEsquerda() { return energiaEsquerda.get(); }
+    public int getEnergiaDireita() { return energiaDireita.get(); }
+    
+    public boolean consumirEnergia(double posX) {
+        AtomicInteger energiaLado = (posX < larguraTela / 2.0) ? energiaEsquerda : energiaDireita;
+        while (true) {
+            int atual = energiaLado.get();
+            if (atual <= 0) return false;
+            if (energiaLado.compareAndSet(atual, atual - 1)) return true;
+        }
+    }
+
+    public int getQtdCanhoesLado(boolean esquerda) {
+        int count = 0;
+        double centro = larguraTela / 2.0;
+        synchronized (LOCK_CANHOES) {
+            for (Canhao c : canhoes) {
+                boolean e = c.getX() < centro;
+                if (e == esquerda) count++;
+            }
+        }
+        return count;
+    }
+
+    public double getPenalidadeLado(boolean esquerda) {
+        int n = getQtdCanhoesLado(esquerda);
+        if (n <= LIMITE_CANHOES_LADO) return 0.0;
+        return (n - LIMITE_CANHOES_LADO) * 0.2;
+    }
+
     public List<Alvo> getAlvos() {
         synchronized (LOCK_ALVOS) { return new ArrayList<>(alvos); }
     }
@@ -243,4 +268,6 @@ public class Jogo implements Runnable {
     public int getAbatesEsquerda() { return abatesEsquerda; }
     public int getAbatesDireita() { return abatesDireita; }
     public boolean isEmExecucao() { return emExecucao; }
+    public int getLarguraTela() { return larguraTela; }
+    public int getAlturaTela() { return alturaTela; }
 }
