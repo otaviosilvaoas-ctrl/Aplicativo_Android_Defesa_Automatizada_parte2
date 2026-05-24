@@ -25,16 +25,41 @@ public class AlvoComum extends Alvo {
         x += velocidadeX;
         y += velocidadeY;
 
-        // Verifica bordas horizontais - Usando as novas variáveis larguraTela e alturaTela
-        if (x - raio < 0 || x + raio >= larguraTela) {
-            velocidadeX = -velocidadeX;
-            x = Math.max(raio, Math.min(larguraTela - raio, x));
+        double centro = larguraTela / 2.0;
+
+        // Se larguraTela ainda não foi definida (0), usa comportamento padrão
+        if (larguraTela > 0) {
+            // Lógica de colisão com a linha central e bordas laterais
+            if (x < centro) {
+                // Alvo no lado ESQUERDO
+                if (x - raio < 0) {
+                    velocidadeX = Math.abs(velocidadeX);
+                    x = raio;
+                } else if (x + raio > centro) {
+                    velocidadeX = -Math.abs(velocidadeX);
+                    x = centro - raio;
+                }
+            } else {
+                // Alvo no lado DIREITO
+                if (x - raio < centro) {
+                    velocidadeX = Math.abs(velocidadeX);
+                    x = centro + raio;
+                } else if (x + raio > larguraTela) {
+                    velocidadeX = -Math.abs(velocidadeX);
+                    x = larguraTela - raio;
+                }
+            }
         }
 
         // Verifica bordas verticais
-        if (y - raio < 0 || y + raio >= alturaTela) {
-            velocidadeY = -velocidadeY;
-            y = Math.max(raio, Math.min(alturaTela - raio, y));
+        if (alturaTela > 0) {
+            if (y - raio < 0) {
+                velocidadeY = Math.abs(velocidadeY);
+                y = raio;
+            } else if (y + raio >= alturaTela) {
+                velocidadeY = -Math.abs(velocidadeY);
+                y = alturaTela - raio;
+            }
         }
     }
 

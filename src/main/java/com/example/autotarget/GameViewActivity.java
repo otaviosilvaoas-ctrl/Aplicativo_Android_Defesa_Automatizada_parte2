@@ -1,11 +1,11 @@
 package com.example.autotarget;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.widget.Button;
 import android.widget.TextView;
-import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 /**
@@ -23,15 +23,15 @@ public class GameViewActivity extends AppCompatActivity {
 
     private TextView timerText;
     private TextView statusText;
-    private int tempoRestante = 60;
+    private int tempoPartida = 60;
+    private int tempoRestante = tempoPartida;
     private boolean cronometroIniciado = false;
     private Runnable timerRunnable;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        // Corrigido erro de ambiguidade chamando explicitamente a classe pai
-        super.setContentView(R.layout.activity_game_view);
+        setContentView(R.layout.activity_game_view);
 
         jogoView = findViewById(R.id.jogo_view);
         Button addCannonButton = findViewById(R.id.add_cannon_button);
@@ -58,7 +58,7 @@ public class GameViewActivity extends AppCompatActivity {
                     tempoRestante--;
                     timerText.setText(tempoRestante + "s");
                     handler.postDelayed(this, 1000);
-                } else if (tempoRestante == 0) {
+                } else if (tempoRestante == 0 && emExecucao) {
                     finalizarJogo();
                 }
             }
@@ -77,7 +77,6 @@ public class GameViewActivity extends AppCompatActivity {
                 jogo.adicionarCanhao(xAleatorio, yAleatorio);
                 statusText.setText("Jogo em Execução");
 
-                // Inicia o cronômetro apenas na inserção do primeiro canhão
                 if (!cronometroIniciado) {
                     cronometroIniciado = true;
                     handler.postDelayed(timerRunnable, 1000);
@@ -91,14 +90,17 @@ public class GameViewActivity extends AppCompatActivity {
     private void finalizarJogo() {
         emExecucao = false;
         jogo.parar();
-        statusText.setText("TEMPO ESGOTADO!");
-        Toast.makeText(this, "Fim de jogo! Abates: " + jogo.getAbatesTotal(), Toast.LENGTH_LONG).show();
         
-        // Bloqueia interações após o fim
-        findViewById(R.id.add_cannon_button).setEnabled(false);
+        // Prepara dados para a tela de Game Over
+        Intent intent = new Intent(this, GameOverActivity.class);
+        intent.putExtra("ABATES_ESQUERDA", jogo.getAbatesEsquerda());
+        intent.putExtra("ABATES_DIREITA", jogo.getAbatesDireita());
+        intent.putExtra("TOTAL_CANHOES", jogo.getCanhoes().size());
+        intent.putExtra("TOTAL_ALVOS", jogo.getAbatesTotal());
+        intent.putExtra("TEMPO_TOTAL", tempoPartida);
         
-        // Retorna para a tela inicial após 3 segundos
-        handler.postDelayed(() -> finish(), 3000);
+        startActivity(intent);
+        finish(); // Fecha a Activity do jogo para não permitir voltar nela
     }
 
     private void iniciarThreadDeAtualizacao() {
@@ -131,5 +133,6 @@ public class GameViewActivity extends AppCompatActivity {
         super.onDestroy();
         handler.removeCallbacks(timerRunnable);
         if (jogo != null) jogo.parar();
+        emExecucao = false;
     }
 }

@@ -28,10 +28,7 @@ public class AlvoRapido extends Alvo {
 
     @Override
     public void mover() {
-        // Incrementa contador de mudança
         contadorMudanca++;
-
-        // Muda direção periodicamente
         if (contadorMudanca >= INTERVALO_MUDANCA) {
             inicializarDirecao();
             contadorMudanca = 0;
@@ -41,15 +38,40 @@ public class AlvoRapido extends Alvo {
         x += velocidadeX;
         y += velocidadeY;
 
-        // Verifica colisão com as bordas e muda direção - Usando larguraTela e alturaTela
-        if (x - raio <= 0 || x + raio >= larguraTela) {
-            velocidadeX = -velocidadeX;
-            x = Math.max(raio, Math.min(larguraTela - raio, x));
+        double centro = larguraTela / 2.0;
+
+        if (larguraTela > 0) {
+            // Lógica de colisão com a linha central e bordas laterais (mantendo o alvo no seu lado original)
+            if (x < centro) {
+                // Lado ESQUERDO
+                if (x - raio < 0) {
+                    velocidadeX = Math.abs(velocidadeX);
+                    x = raio;
+                } else if (x + raio > centro) {
+                    velocidadeX = -Math.abs(velocidadeX);
+                    x = centro - raio;
+                }
+            } else {
+                // Lado DIREITO
+                if (x - raio < centro) {
+                    velocidadeX = Math.abs(velocidadeX);
+                    x = centro + raio;
+                } else if (x + raio > larguraTela) {
+                    velocidadeX = -Math.abs(velocidadeX);
+                    x = larguraTela - raio;
+                }
+            }
         }
 
-        if (y - raio <= 0 || y + raio >= alturaTela) {
-            velocidadeY = -velocidadeY;
-            y = Math.max(raio, Math.min(alturaTela - raio, y));
+        // Verifica colisão com as bordas verticais
+        if (alturaTela > 0) {
+            if (y - raio <= 0) {
+                velocidadeY = Math.abs(velocidadeY);
+                y = raio;
+            } else if (y + raio >= alturaTela) {
+                velocidadeY = -Math.abs(velocidadeY);
+                y = alturaTela - raio;
+            }
         }
     }
 }

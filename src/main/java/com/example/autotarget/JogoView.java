@@ -23,6 +23,7 @@ public class JogoView extends View {
     private Paint paintBarraFundo;
     private Paint paintBarraEnergia;
     private Paint paintLegenda;
+    private Paint paintDivisoria;
     private boolean podeDesenhar;
 
     private long lastTime = 0;
@@ -76,6 +77,12 @@ public class JogoView extends View {
         paintLegenda.setTextSize(30);
         paintLegenda.setColor(Color.WHITE);
 
+        paintDivisoria = new Paint(Paint.ANTI_ALIAS_FLAG);
+        paintDivisoria.setColor(Color.WHITE);
+        paintDivisoria.setAlpha(120);
+        paintDivisoria.setStrokeWidth(4);
+        paintDivisoria.setStyle(Paint.Style.STROKE);
+
         podeDesenhar = true;
     }
 
@@ -105,7 +112,11 @@ public class JogoView extends View {
 
         canvas.drawColor(Color.BLACK);
 
-        // Desenha alvos - Todos como círculos conforme solicitado
+        // Desenha Linha de Divisão Central
+        float centroX = getWidth() / 2f;
+        canvas.drawLine(centroX, 0, centroX, getHeight(), paintDivisoria);
+
+        // Desenha alvos
         for (Alvo alvo : jogo.getAlvos()) {
             float x = (float) alvo.getX();
             float y = (float) alvo.getY();
@@ -143,7 +154,6 @@ public class JogoView extends View {
         paintHUD.setTextSize(50);
         canvas.drawText("ABATES: " + jogo.getAbatesTotal(), 50, 80, paintHUD);
 
-        // Desenha Legenda no canto superior direito
         desenharLegenda(canvas);
 
         // Logs de tela
@@ -163,18 +173,15 @@ public class JogoView extends View {
     }
 
     private void desenharLegenda(Canvas canvas) {
-        float padding = 40;
         float xBase = getWidth() - 220;
         float yBase = 60;
         float raioLegenda = 15;
 
-        // Alvo Rápido (Amarelo)
         paintAlvo.setColor(Color.YELLOW);
         canvas.drawCircle(xBase, yBase, raioLegenda, paintAlvo);
         paintLegenda.setColor(Color.WHITE);
         canvas.drawText("Rápido", xBase + 30, yBase + 10, paintLegenda);
 
-        // Alvo Lento (Azul)
         paintAlvo.setColor(Color.BLUE);
         canvas.drawCircle(xBase, yBase + 50, raioLegenda, paintAlvo);
         paintLegenda.setColor(Color.WHITE);

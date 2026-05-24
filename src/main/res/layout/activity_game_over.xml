@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#F5F5F5"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <TextView
+        android:id="@+id/text_vencedor"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="VENCEDOR: LADO ESQUERDO"
+        android:textColor="#2E7D32"
+        android:textSize="28sp"
+        android:textStyle="bold" />
+
+    <View
+        android:layout_width="100dp"
+        android:layout_height="2dp"
+        android:layout_marginVertical="16dp"
+        android:background="#BDBDBD" />
+
+    <TextView
+        android:id="@+id/text_placar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Placar: 10 x 5"
+        android:textColor="#424242"
+        android:textSize="22sp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/text_detalhes_esquerda"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Abates Lado Esquerdo: 10"
+            android:textColor="#616161"
+            android:textSize="16sp" />
+
+        <TextView
+            android:id="@+id/text_detalhes_direita"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Abates Lado Direito: 5"
+            android:textColor="#616161"
+            android:textSize="16sp" />
+
+        <TextView
+            android:id="@+id/text_total_canhoes"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Total de Canhões: 4"
+            android:textColor="#616161"
+            android:textSize="16sp" />
+
+        <TextView
+            android:id="@+id/text_total_alvos"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Alvos Destruídos: 15"
+            android:textColor="#616161"
+            android:textSize="16sp" />
+
+        <TextView
+            android:id="@+id/text_tempo_total"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Tempo Total: 60s"
+            android:textColor="#616161"
+            android:textSize="16sp" />
+    </LinearLayout>
+
+    <Button
+        android:id="@+id/btn_reiniciar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="48dp"
+        android:backgroundTint="#1976D2"
+        android:text="Jogar Novamente"
+        android:textColor="#FFFFFF" />
+
+    <Button
+        android:id="@+id/btn_sair"
+        style="@style/Widget.MaterialComponents.Button.TextButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="Sair"
+        android:textColor="#D32F2F" />
+
+</LinearLayout>

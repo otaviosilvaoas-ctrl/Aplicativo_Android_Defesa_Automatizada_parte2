@@ -18,6 +18,8 @@ public class Jogo implements Runnable {
     private final List<String> logsTela;
     private boolean emExecucao;
     private int abatesTotal;
+    private int abatesEsquerda;
+    private int abatesDireita;
     private int proximoIdCanhao = 1;
     private Thread threadPrincipal;
     
@@ -37,6 +39,8 @@ public class Jogo implements Runnable {
         this.logsTela = Collections.synchronizedList(new ArrayList<>());
         this.emExecucao = false;
         this.abatesTotal = 0;
+        this.abatesEsquerda = 0;
+        this.abatesDireita = 0;
     }
 
     @Override
@@ -156,11 +160,31 @@ public class Jogo implements Runnable {
     public void adicionarCanhao(double x, double y) throws JogoException {
         synchronized (LOCK_CANHOES) {
             if (canhoes.size() >= 10) throw new JogoException("Máximo de 10 canhões atingido");
-            for (Canhao existente : canhoes) {
-                if (Math.hypot(x - existente.getX(), y - existente.getY()) < DISTANCIA_MINIMA_CANHOES) {
-                    x += 160; 
+            
+            // Lógica para evitar a linha central (divisória)
+            double centro = larguraTela / 2.0;
+            double margemSeguranca = 80.0; // Margem para o canhão não tocar a linha
+            
+            if (Math.abs(x - centro) < margemSeguranca) {
+                // Se o spawn cair na linha, empurra para o lado mais próximo
+                if (x < centro) {
+                    x = centro - margemSeguranca;
+                } else {
+                    x = centro + margemSeguranca;
                 }
             }
+
+            // Evitar sobreposição com outros canhões
+            for (Canhao existente : canhoes) {
+                if (Math.hypot(x - existente.getX(), y - existente.getY()) < DISTANCIA_MINIMA_CANHOES) {
+                    // Tenta mover o novo canhão, mas mantém a verificação da linha central
+                    x += 160;
+                    if (Math.abs(x - centro) < margemSeguranca) {
+                        x = centro + margemSeguranca;
+                    }
+                }
+            }
+
             Canhao novoCanhao = new Canhao(x, y, this, proximoIdCanhao++);
             canhoes.add(novoCanhao);
             adicionarLog("Canhão " + novoCanhao.getId() + " adicionado");
@@ -183,6 +207,14 @@ public class Jogo implements Runnable {
                                 alvo.setAtivo(false);
                                 projetil.setAtivo(false);
                                 abatesTotal++;
+                                
+                                // Determina o lado do abate
+                                if (alvo.getX() < larguraTela / 2.0) {
+                                    abatesEsquerda++;
+                                } else {
+                                    abatesDireita++;
+                                }
+                                
                                 GerenciadorMetricas.registrarColisao();
                                 adicionarLog("Alvo destruído!");
                                 break;
@@ -208,5 +240,7 @@ public class Jogo implements Runnable {
     }
 
     public int getAbatesTotal() { return abatesTotal; }
+    public int getAbatesEsquerda() { return abatesEsquerda; }
+    public int getAbatesDireita() { return abatesDireita; }
     public boolean isEmExecucao() { return emExecucao; }
 }
