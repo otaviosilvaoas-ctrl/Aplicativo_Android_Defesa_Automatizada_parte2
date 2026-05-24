@@ -13,14 +13,19 @@ public class Canhao implements Runnable {
     private final List<Projetil> projeteis;
     private boolean ativo;
     private final Jogo jogo;
+    private final int id;
+    private int energia;
     
     private static final double VELOCIDADE_PROJETIL = 18;
     private static final int INTERVALO_DE_DISPARO = 700;
+    private static final int ENERGIA_MAXIMA = 100;
 
-    public Canhao(double x, double y, Jogo jogo) {
+    public Canhao(double x, double y, Jogo jogo, int id) {
         this.x = x;
         this.y = y;
         this.jogo = jogo;
+        this.id = id;
+        this.energia = ENERGIA_MAXIMA;
         this.projeteis = new ArrayList<>();
         this.ativo = true;
     }
@@ -52,12 +57,16 @@ public class Canhao implements Runnable {
      */
     public void disparar() throws JogoException {
         if (!ativo) return;
-        Projetil p = new Projetil(x, y, angulo, VELOCIDADE_PROJETIL);
-        synchronized (projeteis) {
-            projeteis.add(p);
+        
+        // Simulação de consumo de energia
+        if (energia > 0) {
+            Projetil p = new Projetil(x, y, angulo, VELOCIDADE_PROJETIL);
+            synchronized (projeteis) {
+                projeteis.add(p);
+            }
+            jogo.dispararProjetil(p);
+            // energia -= 1; // Opcional: descomentar para habilitar consumo
         }
-        // Agora solicita ao Jogo para gerenciar a execução do projetil via ExecutorService
-        jogo.dispararProjetil(p);
     }
 
     @Override
@@ -94,4 +103,7 @@ public class Canhao implements Runnable {
     public boolean isAtivo() { return ativo; }
     public void setAtivo(boolean ativo) { this.ativo = ativo; }
     public void mover(double nx, double ny, double na) { this.x = nx; this.y = ny; this.angulo = na; }
+    public int getId() { return id; }
+    public int getEnergia() { return energia; }
+    public int getEnergiaMaxima() { return ENERGIA_MAXIMA; }
 }

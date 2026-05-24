@@ -1,6 +1,7 @@
 package com.example.autotarget;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
@@ -14,37 +15,37 @@ import java.util.concurrent.TimeUnit;
 public class Jogo implements Runnable {
     private final List<Alvo> alvos;
     private final List<Canhao> canhoes;
+    private final List<String> logsTela;
     private boolean emExecucao;
     private int abatesTotal;
+    private int proximoIdCanhao = 1;
     private Thread threadPrincipal;
     
     private int larguraTela;
     private int alturaTela;
     
-    // Executor para gerenciar threads de projéteis de forma eficiente
     private ExecutorService executorProjeteis;
 
     private static final Object LOCK_ALVOS = new Object();
     private static final Object LOCK_CANHOES = new Object();
     private static final double DISTANCIA_MINIMA_CANHOES = 150.0;
-    private static final int POOL_PROJETEIS = 30; // Limite de threads para projéteis simultâneos
+    private static final int POOL_PROJETEIS = 30;
 
     public Jogo() {
         this.alvos = new ArrayList<>();
         this.canhoes = new ArrayList<>();
+        this.logsTela = Collections.synchronizedList(new ArrayList<>());
         this.emExecucao = false;
         this.abatesTotal = 0;
     }
 
     @Override
     public void run() {
-        GerenciadorMetricas.log("THREAD_PRINCIPAL", "Iniciada");
         while (emExecucao && !Thread.currentThread().isInterrupted()) {
             long inicio = System.currentTimeMillis();
             try {
                 verificarColisoes();
                 
-                // Registro periódico de estado (aprox a cada 1s)
                 if (System.currentTimeMillis() % 1000 < 25) {
                     int numProjeteis = 0;
                     synchronized (LOCK_CANHOES) {
@@ -62,43 +63,30 @@ public class Jogo implements Runnable {
                 break;
             }
         }
-        GerenciadorMetricas.log("THREAD_PRINCIPAL", "Encerrada");
     }
 
-    /**
-     * Atualiza as dimensões da tela e propaga para os elementos existentes.
-     */
+    public void adicionarLog(String msg) {
+        logsTela.add(msg);
+        if (logsTela.size() > 5) {
+            logsTela.remove(0);
+        }
+    }
+
+    public List<String> getLogsTela() {
+        return new ArrayList<>(logsTela);
+    }
+
     public void setDimensoes(int largura, int altura) {
         this.larguraTela = largura;
         this.alturaTela = altura;
-        GerenciadorMetricas.log("CONFIG", "Tela atualizada para: " + largura + "x" + altura);
-        
         synchronized (LOCK_ALVOS) {
-            for (Alvo alvo : alvos) {
-                alvo.setLimitesTela(largura, altura);
-            }
-        }
-        
-        synchronized (LOCK_CANHOES) {
-            for (Canhao canhao : canhoes) {
-                for (Projetil p : canhao.getProjeteis()) {
-                    p.setLimitesTela(largura, altura);
-                }
-            }
+            for (Alvo alvo : alvos) alvo.setLimitesTela(largura, altura);
         }
     }
 
-    /**
-     * Inicia o jogo, ativando as threads de processamento e o pool de projéteis.
-     */
     public synchronized void iniciar() throws JogoException {
-        if (emExecucao) {
-            throw new JogoException("Jogo já está em execução");
-        }
-
-        GerenciadorMetricas.log("CONCORRENCIA", "Iniciando ExecutorService (Pool: " + POOL_PROJETEIS + ")");
+        if (emExecucao) throw new JogoException("Jogo já está em execução");
         executorProjeteis = Executors.newFixedThreadPool(POOL_PROJETEIS);
-
         synchronized (LOCK_CANHOES) {
             synchronized (LOCK_ALVOS) {
                 for (Canhao canhao : canhoes) {
@@ -113,49 +101,26 @@ public class Jogo implements Runnable {
                 emExecucao = true;
             }
         }
-        
         criarAlvosIniciais();
-
         threadPrincipal = new Thread(this);
         threadPrincipal.start();
-        GerenciadorMetricas.log("SISTEMA", "Jogo iniciado com sucesso");
+        adicionarLog("Jogo Iniciado");
     }
 
-    /**
-     * Finaliza o jogo e encerra todos os serviços de execução.
-     */
     public synchronized void parar() {
-        GerenciadorMetricas.log("SISTEMA", "Parando o jogo...");
         emExecucao = false;
-        
         if (executorProjeteis != null) {
-            GerenciadorMetricas.log("CONCORRENCIA", "Encerrando pool de projéteis");
             executorProjeteis.shutdownNow();
-            try {
-                if (!executorProjeteis.awaitTermination(500, TimeUnit.MILLISECONDS)) {
-                    executorProjeteis.shutdownNow();
-                }
-            } catch (InterruptedException e) {
-                executorProjeteis.shutdownNow();
-            }
         }
-
-        if (threadPrincipal != null) {
-            threadPrincipal.interrupt();
-        }
-        
+        if (threadPrincipal != null) threadPrincipal.interrupt();
         synchronized (LOCK_ALVOS) {
             for (Alvo alvo : alvos) alvo.setAtivo(false);
         }
         synchronized (LOCK_CANHOES) {
             for (Canhao canhao : canhoes) canhao.setAtivo(false);
         }
-        GerenciadorMetricas.log("SISTEMA", "Jogo parado");
     }
 
-    /**
-     * Submete a tarefa de um projétil ao ExecutorService.
-     */
     public void dispararProjetil(Projetil p) {
         if (emExecucao && executorProjeteis != null && !executorProjeteis.isShutdown()) {
             p.setLimitesTela(larguraTela, alturaTela);
@@ -167,8 +132,6 @@ public class Jogo implements Runnable {
         Random random = new Random();
         double w = larguraTela > 0 ? larguraTela : 1000;
         double h = alturaTela > 0 ? alturaTela : 1000;
-        
-        GerenciadorMetricas.log("LOGICA", "Criando alvos iniciais");
         for (int i = 0; i < 3; i++) {
             adicionarAlvo(new AlvoComum(random.nextDouble() * (w * 0.8) + (w * 0.1), 
                           random.nextDouble() * (h * 0.8) + (h * 0.1), 40, 5));
@@ -192,21 +155,15 @@ public class Jogo implements Runnable {
 
     public void adicionarCanhao(double x, double y) throws JogoException {
         synchronized (LOCK_CANHOES) {
-            if (canhoes.size() >= 10) {
-                throw new JogoException("Máximo de 10 canhões atingido");
-            }
-
+            if (canhoes.size() >= 10) throw new JogoException("Máximo de 10 canhões atingido");
             for (Canhao existente : canhoes) {
-                double dx = x - existente.getX();
-                double dy = y - existente.getY();
-                if (Math.sqrt(dx * dx + dy * dy) < DISTANCIA_MINIMA_CANHOES) {
+                if (Math.hypot(x - existente.getX(), y - existente.getY()) < DISTANCIA_MINIMA_CANHOES) {
                     x += 160; 
                 }
             }
-
-            Canhao novoCanhao = new Canhao(x, y, this);
+            Canhao novoCanhao = new Canhao(x, y, this, proximoIdCanhao++);
             canhoes.add(novoCanhao);
-            GerenciadorMetricas.log("LOGICA", "Novo canhão adicionado em: " + x + "," + y);
+            adicionarLog("Canhão " + novoCanhao.getId() + " adicionado");
             if (emExecucao) {
                 novoCanhao.setAtivo(true);
                 new Thread(novoCanhao).start();
@@ -220,7 +177,6 @@ public class Jogo implements Runnable {
                 for (int i = alvos.size() - 1; i >= 0; i--) {
                     Alvo alvo = alvos.get(i);
                     if (!alvo.isAtivo()) continue;
-
                     for (Canhao canhao : canhoes) {
                         for (Projetil projetil : canhao.getProjeteis()) {
                             if (projetil.isAtivo() && alvo.verificarColisao(projetil)) {
@@ -228,23 +184,18 @@ public class Jogo implements Runnable {
                                 projetil.setAtivo(false);
                                 abatesTotal++;
                                 GerenciadorMetricas.registrarColisao();
+                                adicionarLog("Alvo destruído!");
                                 break;
                             }
                         }
                     }
                 }
                 alvos.removeIf(a -> !a.isAtivo());
-                
-                if (alvos.size() < 5 && emExecucao) {
-                    criarAlvosIniciais();
-                }
+                if (alvos.size() < 5 && emExecucao) criarAlvosIniciais();
             }
         }
-        
         synchronized (LOCK_CANHOES) {
-            for (Canhao c : canhoes) {
-                c.limparProjeteis();
-            }
+            for (Canhao c : canhoes) c.limparProjeteis();
         }
     }
 
@@ -258,7 +209,4 @@ public class Jogo implements Runnable {
 
     public int getAbatesTotal() { return abatesTotal; }
     public boolean isEmExecucao() { return emExecucao; }
-    
-    public int getLarguraTela() { return larguraTela; }
-    public int getAlturaTela() { return alturaTela; }
 }

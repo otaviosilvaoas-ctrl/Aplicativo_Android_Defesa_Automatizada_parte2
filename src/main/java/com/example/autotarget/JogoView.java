@@ -7,10 +7,10 @@ import android.graphics.Color;
 import android.graphics.Canvas;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
+import java.util.List;
 
 /**
- * View customizada que renderiza o jogo no Canvas.
- * Desenha alvos, canhões e projéteis.
+ * View customizada que renderiza o jogo no Canvas com feedback visual melhorado.
  */
 public class JogoView extends View {
 
@@ -19,10 +19,12 @@ public class JogoView extends View {
     private Paint paintCanhao;
     private Paint paintProjetil;
     private Paint paintTexto;
-    private Paint paintDebug;
+    private Paint paintHUD;
+    private Paint paintBarraFundo;
+    private Paint paintBarraEnergia;
+    private Paint paintLegenda;
     private boolean podeDesenhar;
 
-    // Variáveis para cálculo de FPS
     private long lastTime = 0;
     private int frameCount = 0;
     private int currentFps = 0;
@@ -42,32 +44,37 @@ public class JogoView extends View {
         init();
     }
 
-    /**
-     * Inicializa as propriedades da view.
-     */
     private void init() {
-        paintAlvo = new Paint();
-        paintAlvo.setColor(Color.BLUE);
+        paintAlvo = new Paint(Paint.ANTI_ALIAS_FLAG);
         paintAlvo.setStyle(Paint.Style.FILL);
 
-        paintCanhao = new Paint();
+        paintCanhao = new Paint(Paint.ANTI_ALIAS_FLAG);
         paintCanhao.setColor(Color.GREEN);
         paintCanhao.setStyle(Paint.Style.STROKE);
         paintCanhao.setStrokeWidth(5);
 
-        paintProjetil = new Paint();
+        paintProjetil = new Paint(Paint.ANTI_ALIAS_FLAG);
         paintProjetil.setColor(Color.RED);
         paintProjetil.setStyle(Paint.Style.FILL);
 
-        paintTexto = new Paint();
+        paintTexto = new Paint(Paint.ANTI_ALIAS_FLAG);
         paintTexto.setColor(Color.WHITE);
-        paintTexto.setTextSize(60);
-        paintTexto.setStyle(Paint.Style.FILL);
+        paintTexto.setTextSize(50);
+        paintTexto.setTextAlign(Paint.Align.CENTER);
 
-        paintDebug = new Paint();
-        paintDebug.setColor(Color.YELLOW);
-        paintDebug.setTextSize(30);
-        paintDebug.setStyle(Paint.Style.FILL);
+        paintHUD = new Paint(Paint.ANTI_ALIAS_FLAG);
+        paintHUD.setColor(Color.WHITE);
+        paintHUD.setTextSize(40);
+
+        paintBarraFundo = new Paint();
+        paintBarraFundo.setColor(Color.DKGRAY);
+
+        paintBarraEnergia = new Paint();
+        paintBarraEnergia.setColor(Color.GREEN);
+
+        paintLegenda = new Paint(Paint.ANTI_ALIAS_FLAG);
+        paintLegenda.setTextSize(30);
+        paintLegenda.setColor(Color.WHITE);
 
         podeDesenhar = true;
     }
@@ -79,20 +86,14 @@ public class JogoView extends View {
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
-        if (jogo != null) {
-            jogo.setDimensoes(w, h);
-        }
+        if (jogo != null) jogo.setDimensoes(w, h);
     }
 
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
+        if (jogo == null || !podeDesenhar) return;
 
-        if (jogo == null || !podeDesenhar) {
-            return;
-        }
-
-        // Cálculo de FPS
         long now = System.currentTimeMillis();
         frameCount++;
         if (now - lastTime >= 1000) {
@@ -102,87 +103,133 @@ public class JogoView extends View {
             GerenciadorMetricas.registrarFPS(currentFps);
         }
 
-        // Desenha fundo
         canvas.drawColor(Color.BLACK);
 
-        // Desenha linha divisória
-        Paint linePaint = new Paint();
-        linePaint.setColor(Color.WHITE);
-        linePaint.setAlpha(50);
-        linePaint.setStrokeWidth(3);
-        canvas.drawLine(getWidth() / 2f, 0, getWidth() / 2f, getHeight(), linePaint);
-
-        // Desenha alvos
+        // Desenha alvos - Todos como círculos conforme solicitado
         for (Alvo alvo : jogo.getAlvos()) {
+            float x = (float) alvo.getX();
+            float y = (float) alvo.getY();
+            float r = (float) alvo.getRaio();
+
             if (alvo instanceof AlvoRapido) {
                 paintAlvo.setColor(Color.YELLOW);
+                canvas.drawCircle(x, y, r, paintAlvo);
+                paintTexto.setColor(Color.BLACK);
+                paintTexto.setTextSize(20);
+                canvas.drawText("R", x, y + 7, paintTexto);
             } else {
                 paintAlvo.setColor(Color.BLUE);
+                canvas.drawCircle(x, y, r, paintAlvo);
+                paintTexto.setColor(Color.WHITE);
+                paintTexto.setTextSize(20);
+                canvas.drawText("L", x, y + 7, paintTexto);
             }
-            canvas.drawCircle((float) alvo.getX(), (float) alvo.getY(),
-                    (float) alvo.getRaio(), paintAlvo);
         }
 
         // Desenha canhões
         for (Canhao canhao : jogo.getCanhoes()) {
-            drawCanhao(canvas, canhao);
+            drawCanhaoComFeedback(canvas, canhao);
         }
 
         // Desenha projéteis
         for (Canhao canhao : jogo.getCanhoes()) {
-            for (Projetil projetil : canhao.getProjeteis()) {
-                canvas.drawCircle((float) projetil.getX(), (float) projetil.getY(),
-                        (float) projetil.getRaio(), paintProjetil);
+            for (Projetil p : canhao.getProjeteis()) {
+                canvas.drawCircle((float) p.getX(), (float) p.getY(), (float) p.getRaio(), paintProjetil);
             }
         }
 
-        // Desenha placar
-        canvas.drawText("Abates: " + jogo.getAbatesTotal(), 40, 100, paintTexto);
+        // HUD - Placar e Logs
+        paintHUD.setColor(Color.WHITE);
+        paintHUD.setTextSize(50);
+        canvas.drawText("ABATES: " + jogo.getAbatesTotal(), 50, 80, paintHUD);
 
-        // Informações de DEBUG (apenas se ativado)
+        // Desenha Legenda no canto superior direito
+        desenharLegenda(canvas);
+
+        // Logs de tela
+        paintHUD.setTextSize(35);
+        paintHUD.setColor(Color.LTGRAY);
+        List<String> logs = jogo.getLogsTela();
+        for (int i = 0; i < logs.size(); i++) {
+            canvas.drawText("> " + logs.get(i), 50, 150 + (i * 45), paintHUD);
+        }
+
         if (GerenciadorMetricas.DEBUG) {
-            canvas.drawText("FPS: " + currentFps, 40, 150, paintDebug);
-            canvas.drawText("Alvos: " + jogo.getAlvos().size(), 40, 190, paintDebug);
+            paintHUD.setColor(Color.YELLOW);
+            canvas.drawText("FPS: " + currentFps, 50, getHeight() - 50, paintHUD);
         }
 
         invalidate();
     }
 
-    private void drawCanhao(Canvas canvas, Canhao canhao) {
+    private void desenharLegenda(Canvas canvas) {
+        float padding = 40;
+        float xBase = getWidth() - 220;
+        float yBase = 60;
+        float raioLegenda = 15;
+
+        // Alvo Rápido (Amarelo)
+        paintAlvo.setColor(Color.YELLOW);
+        canvas.drawCircle(xBase, yBase, raioLegenda, paintAlvo);
+        paintLegenda.setColor(Color.WHITE);
+        canvas.drawText("Rápido", xBase + 30, yBase + 10, paintLegenda);
+
+        // Alvo Lento (Azul)
+        paintAlvo.setColor(Color.BLUE);
+        canvas.drawCircle(xBase, yBase + 50, raioLegenda, paintAlvo);
+        paintLegenda.setColor(Color.WHITE);
+        canvas.drawText("Lento", xBase + 30, yBase + 60, paintLegenda);
+    }
+
+    private void drawCanhaoComFeedback(Canvas canvas, Canhao canhao) {
         float x = (float) canhao.getX();
         float y = (float) canhao.getY();
-        float angulo = (float) canhao.getAngulo();
-        float tamanho = 50;
+        float ang = (float) canhao.getAngulo();
+        float tam = 50;
 
-        float x1 = x + tamanho * (float) Math.cos(angulo);
-        float y1 = y + tamanho * (float) Math.sin(angulo);
-
-        float x2 = x + tamanho * (float) Math.cos(angulo + 2.094);
-        float y2 = y + tamanho * (float) Math.sin(angulo + 2.094);
-
-        float x3 = x + tamanho * (float) Math.cos(angulo + 4.189);
-        float y3 = y + tamanho * (float) Math.sin(angulo + 4.189);
+        float x1 = x + tam * (float) Math.cos(ang);
+        float y1 = y + tam * (float) Math.sin(ang);
+        float x2 = x + tam * (float) Math.cos(ang + 2.094);
+        float y2 = y + tam * (float) Math.sin(ang + 2.094);
+        float x3 = x + tam * (float) Math.cos(ang + 4.189);
+        float y3 = y + tam * (float) Math.sin(ang + 4.189);
 
         canvas.drawLine(x1, y1, x2, y2, paintCanhao);
         canvas.drawLine(x2, y2, x3, y3, paintCanhao);
         canvas.drawLine(x3, y3, x1, y1, paintCanhao);
         canvas.drawCircle(x, y, 15, paintCanhao);
+
+        paintTexto.setColor(Color.GREEN);
+        paintTexto.setTextSize(30);
+        paintTexto.setTextAlign(Paint.Align.CENTER);
+        canvas.drawText("C" + canhao.getId(), x, y - 65, paintTexto);
+
+        float larguraBarra = 80;
+        float alturaBarra = 10;
+        float porcentagem = (float) canhao.getEnergia() / canhao.getEnergiaMaxima();
+        
+        canvas.drawRect(x - larguraBarra/2, y + 60, x + larguraBarra/2, y + 60 + alturaBarra, paintBarraFundo);
+        paintBarraEnergia.setColor(porcentagem > 0.3f ? Color.GREEN : Color.RED);
+        canvas.drawRect(x - larguraBarra/2, y + 60, x - larguraBarra/2 + (larguraBarra * porcentagem), y + 60 + alturaBarra, paintBarraEnergia);
     }
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         if (jogo == null) return false;
         if (event.getAction() == MotionEvent.ACTION_DOWN || event.getAction() == MotionEvent.ACTION_MOVE) {
-            try {
-                if (!jogo.getCanhoes().isEmpty()) {
-                    Canhao canhao = jogo.getCanhoes().get(0);
-                    double dx = event.getX() - canhao.getX();
-                    double dy = event.getY() - canhao.getY();
-                    double angulo = Math.atan2(dy, dx);
-                    canhao.mover(canhao.getX(), canhao.getY(), angulo);
+            Canhao selecionado = null;
+            double menorDist = Double.MAX_VALUE;
+            for (Canhao c : jogo.getCanhoes()) {
+                double d = Math.hypot(event.getX() - c.getX(), event.getY() - c.getY());
+                if (d < 300 && d < menorDist) {
+                    menorDist = d;
+                    selecionado = c;
                 }
-            } catch (Exception e) {
-                e.printStackTrace();
+            }
+            if (selecionado != null) {
+                double dx = event.getX() - selecionado.getX();
+                double dy = event.getY() - selecionado.getY();
+                selecionado.mover(selecionado.getX(), selecionado.getY(), Math.atan2(dy, dx));
             }
         }
         return true;
