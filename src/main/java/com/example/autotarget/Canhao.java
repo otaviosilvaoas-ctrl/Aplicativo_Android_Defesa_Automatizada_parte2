@@ -47,14 +47,17 @@ public class Canhao implements Runnable {
         }
     }
 
+    /**
+     * Cria um novo projetil e solicita ao jogo que o execute usando o pool de threads.
+     */
     public void disparar() throws JogoException {
         if (!ativo) return;
         Projetil p = new Projetil(x, y, angulo, VELOCIDADE_PROJETIL);
         synchronized (projeteis) {
             projeteis.add(p);
         }
-        // Inicia a tarefa do projétil em uma nova thread
-        new Thread(p).start();
+        // Agora solicita ao Jogo para gerenciar a execução do projetil via ExecutorService
+        jogo.dispararProjetil(p);
     }
 
     @Override

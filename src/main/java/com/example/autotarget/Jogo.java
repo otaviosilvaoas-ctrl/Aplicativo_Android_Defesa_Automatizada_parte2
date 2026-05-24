@@ -3,6 +3,9 @@ package com.example.autotarget;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Classe principal que gerencia a lógica do jogo.
@@ -14,10 +17,14 @@ public class Jogo implements Runnable {
     private boolean emExecucao;
     private int abatesTotal;
     private Thread threadPrincipal;
+    
+    // Executor para gerenciar threads de projéteis de forma eficiente
+    private ExecutorService executorProjeteis;
 
     private static final Object LOCK_ALVOS = new Object();
     private static final Object LOCK_CANHOES = new Object();
     private static final double DISTANCIA_MINIMA_CANHOES = 150.0;
+    private static final int POOL_PROJETEIS = 30; // Limite de threads para projéteis simultâneos
 
     public Jogo() {
         this.alvos = new ArrayList<>();
@@ -40,15 +47,16 @@ public class Jogo implements Runnable {
     }
 
     /**
-     * Inicia o jogo, ativando as threads de processamento.
-     * Corrigido para evitar double-start de threads.
+     * Inicia o jogo, ativando as threads de processamento e o pool de projéteis.
      */
     public synchronized void iniciar() throws JogoException {
         if (emExecucao) {
             throw new JogoException("Jogo já está em execução");
         }
 
-        // 1. Reativar e iniciar threads de objetos que já estavam na lista (ex: canhões do lobby ou alvos de restart)
+        // Inicializa o pool de threads para projéteis
+        executorProjeteis = Executors.newFixedThreadPool(POOL_PROJETEIS);
+
         synchronized (LOCK_CANHOES) {
             synchronized (LOCK_ALVOS) {
                 for (Canhao canhao : canhoes) {
@@ -59,31 +67,52 @@ public class Jogo implements Runnable {
                     alvo.setAtivo(true);
                     new Thread(alvo).start();
                 }
-
-                // 2. Ativar o flag de execução enquanto segura os locks.
-                // A partir deste ponto, adições via UI (adicionarCanhao) ou reposição (verificarColisoes)
-                // dispararão suas threads automaticamente através de adicionarAlvo/Canhao.
                 emExecucao = true;
             }
         }
         
-        // 3. Criar os alvos iniciais da partida (serão iniciados via adicionarAlvo)
         criarAlvosIniciais();
 
         threadPrincipal = new Thread(this);
         threadPrincipal.start();
     }
 
+    /**
+     * Finaliza o jogo e encerra todos os serviços de execução.
+     */
     public synchronized void parar() {
         emExecucao = false;
+        
+        // Encerra o executor de projéteis
+        if (executorProjeteis != null) {
+            executorProjeteis.shutdownNow();
+            try {
+                if (!executorProjeteis.awaitTermination(500, TimeUnit.MILLISECONDS)) {
+                    executorProjeteis.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                executorProjeteis.shutdownNow();
+            }
+        }
+
         if (threadPrincipal != null) {
             threadPrincipal.interrupt();
         }
+        
         synchronized (LOCK_ALVOS) {
             for (Alvo alvo : alvos) alvo.setAtivo(false);
         }
         synchronized (LOCK_CANHOES) {
             for (Canhao canhao : canhoes) canhao.setAtivo(false);
+        }
+    }
+
+    /**
+     * Submete a tarefa de um projétil ao ExecutorService.
+     */
+    public void dispararProjetil(Projetil p) {
+        if (emExecucao && executorProjeteis != null && !executorProjeteis.isShutdown()) {
+            executorProjeteis.submit(p);
         }
     }
 
