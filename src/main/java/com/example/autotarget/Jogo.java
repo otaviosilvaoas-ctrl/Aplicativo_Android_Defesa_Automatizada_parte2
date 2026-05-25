@@ -88,10 +88,10 @@ public class Jogo implements Runnable {
 
                 RealTimeScheduler.endTask("T4", startTimeCol);
 
-                // T8: Gerenciamento de Energia e Penalidades (Aproximado pelo Game Loop)
+                // T8: Gerenciamento de Energia e Penalidades
                 long startTimeEnergy = System.currentTimeMillis();
                 RealTimeScheduler.startTask("T8");
-                // Lógica de T8 já está distribuída, aqui apenas monitoramos a frequência do ciclo de controle
+                // Monitorando apenas o overhead do ciclo de controle de energia
                 RealTimeScheduler.endTask("T8", startTimeEnergy);
 
                 Thread.sleep(20); 
@@ -123,6 +123,11 @@ public class Jogo implements Runnable {
 
     public synchronized void iniciar() throws JogoException {
         if (emExecucao) throw new JogoException("Jogo já está em execução");
+        
+        // Reset de métricas para nova partida
+        RealTimeScheduler.resetAll();
+        GerenciadorMetricas.reset();
+
         executorProjeteis = Executors.newFixedThreadPool(POOL_PROJETEIS);
         energiaEsquerda.set(100);
         energiaDireita.set(100);

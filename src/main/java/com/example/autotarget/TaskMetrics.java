@@ -8,22 +8,34 @@ import java.util.concurrent.atomic.AtomicLong;
 public class TaskMetrics {
     public final String id;
     public final String descricao;
+    public final int prioridade;
     public final long period; // Pi (ms)
     public final long deadline; // Di (ms)
 
     private long lastStartTime = 0;
     private final AtomicLong executionCount = new AtomicLong(0);
-    private final AtomicLong totalExecutionTime = new AtomicLong(0); // Sum of Ci
+    private final AtomicLong totalExecutionTime = new AtomicLong(0); // Soma de Ci
     private final AtomicLong maxExecutionTime = new AtomicLong(0); // WCET
     private final AtomicLong totalJitter = new AtomicLong(0);
     private final AtomicLong deadlinesMissed = new AtomicLong(0);
     private long lastResponseTime = 0;
 
-    public TaskMetrics(String id, String descricao, long period, long deadline) {
+    public TaskMetrics(String id, String descricao, int prioridade, long period, long deadline) {
         this.id = id;
         this.descricao = descricao;
+        this.prioridade = prioridade;
         this.period = period;
         this.deadline = deadline;
+    }
+
+    public void reset() {
+        lastStartTime = 0;
+        executionCount.set(0);
+        totalExecutionTime.set(0);
+        maxExecutionTime.set(0);
+        totalJitter.set(0);
+        deadlinesMissed.set(0);
+        lastResponseTime = 0;
     }
 
     public void recordStart() {
@@ -47,7 +59,9 @@ public class TaskMetrics {
             currentMax = maxExecutionTime.get();
         }
 
-        lastResponseTime = ci; // Simplificado: Ri aproximado pelo tempo de execução + overhead
+        // Ri aproximado pelo tempo de execução somado ao jitter médio
+        lastResponseTime = ci + (long)getAverageJitter(); 
+
         if (ci > deadline) {
             deadlinesMissed.incrementAndGet();
         }

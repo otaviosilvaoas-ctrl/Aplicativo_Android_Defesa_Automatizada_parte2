@@ -98,9 +98,11 @@ public class GameViewActivity extends AppCompatActivity {
         intent.putExtra("TOTAL_CANHOES", jogo.getCanhoes().size());
         intent.putExtra("TOTAL_ALVOS", jogo.getAbatesTotal());
         intent.putExtra("TEMPO_TOTAL", tempoPartida);
+        intent.putExtra("ENERGIA_ESQ", jogo.getEnergiaEsquerda());
+        intent.putExtra("ENERGIA_DIR", jogo.getEnergiaDireita());
         
         startActivity(intent);
-        finish(); // Fecha a Activity do jogo para não permitir voltar nela
+        finish();
     }
 
     private void iniciarThreadDeAtualizacao() {

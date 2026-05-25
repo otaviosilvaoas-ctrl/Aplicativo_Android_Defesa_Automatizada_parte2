@@ -1,99 +1,144 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F5F5F5"
-    android:gravity="center"
-    android:orientation="vertical"
-    android:padding="24dp">
-
-    <TextView
-        android:id="@+id/text_vencedor"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="VENCEDOR: LADO ESQUERDO"
-        android:textColor="#2E7D32"
-        android:textSize="28sp"
-        android:textStyle="bold" />
-
-    <View
-        android:layout_width="100dp"
-        android:layout_height="2dp"
-        android:layout_marginVertical="16dp"
-        android:background="#BDBDBD" />
-
-    <TextView
-        android:id="@+id/text_placar"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Placar: 10 x 5"
-        android:textColor="#424242"
-        android:textSize="22sp" />
+    android:background="#FAFAFA"
+    android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
-        android:orientation="vertical">
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        android:padding="16dp">
 
+        <!-- CABEÇALHO DE RESULTADO -->
         <TextView
-            android:id="@+id/text_detalhes_esquerda"
+            android:id="@+id/text_vencedor"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Abates Lado Esquerdo: 10"
-            android:textColor="#616161"
-            android:textSize="16sp" />
+            android:text="VENCEDOR"
+            android:textColor="#1B5E20"
+            android:textSize="28sp"
+            android:textStyle="bold" />
 
         <TextView
-            android:id="@+id/text_detalhes_direita"
+            android:id="@+id/text_placar"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Abates Lado Direito: 5"
-            android:textColor="#616161"
-            android:textSize="16sp" />
+            android:layout_marginTop="4dp"
+            android:text="00 x 00"
+            android:textColor="#424242"
+            android:textSize="22sp" />
 
+        <!-- CARD DE ESTATÍSTICAS BÁSICAS -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:background="#FFFFFF"
+            android:elevation="4dp"
+            android:orientation="horizontal"
+            android:padding="16dp">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+                <TextView android:id="@+id/text_detalhes_esquerda" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Esq: 0" android:textSize="14sp" />
+                <TextView android:id="@+id/text_detalhes_direita" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Dir: 0" android:textSize="14sp" />
+                <TextView android:id="@+id/text_energia_final" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Energia: 100/100" android:textSize="12sp" android:textColor="#757575"/>
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+                <TextView android:id="@+id/text_total_canhoes" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Canhões: 0" android:textSize="14sp" />
+                <TextView android:id="@+id/text_total_alvos" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Alvos: 0" android:textSize="14sp" />
+                <TextView android:id="@+id/text_tempo_total" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Tempo: 60s" android:textSize="12sp" android:textColor="#757575"/>
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- SEÇÃO DE ANÁLISE DE ESCALONABILIDADE -->
         <TextView
-            android:id="@+id/text_total_canhoes"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="ANÁLISE DE ESCALONABILIDADE (AV2)"
+            android:textColor="#263238"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <HorizontalScrollView
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="Total de Canhões: 4"
-            android:textColor="#616161"
-            android:textSize="16sp" />
+            android:background="#FFFFFF"
+            android:elevation="2dp">
 
-        <TextView
-            android:id="@+id/text_total_alvos"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Alvos Destruídos: 15"
-            android:textColor="#616161"
-            android:textSize="16sp" />
+            <TableLayout
+                android:id="@+id/table_rt_analysis"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:padding="4dp">
 
-        <TextView
-            android:id="@+id/text_tempo_total"
-            android:layout_width="wrap_content"
+                <TableRow android:background="#F0F0F0">
+                    <TextView android:padding="10dp" android:text="ID" android:textStyle="bold" android:textSize="12sp" />
+                    <TextView android:padding="10dp" android:text="Tarefa" android:textStyle="bold" android:textSize="12sp" />
+                    <TextView android:padding="10dp" android:text="Prio" android:textStyle="bold" android:textSize="12sp" />
+                    <TextView android:padding="10dp" android:text="Pi(ms)" android:textStyle="bold" android:textSize="12sp" />
+                    <TextView android:padding="10dp" android:text="Ci(ms)" android:textStyle="bold" android:textSize="12sp" />
+                    <TextView android:padding="10dp" android:text="Di(ms)" android:textStyle="bold" android:textSize="12sp" />
+                    <TextView android:padding="10dp" android:text="Ji(ms)" android:textStyle="bold" android:textSize="12sp" />
+                    <TextView android:padding="10dp" android:text="Ri(ms)" android:textStyle="bold" android:textSize="12sp" />
+                </TableRow>
+                <!-- Linhas inseridas via código -->
+            </TableLayout>
+        </HorizontalScrollView>
+
+        <!-- CARD DE MÉTRICAS TÉCNICAS -->
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Tempo Total: 60s"
-            android:textColor="#616161"
-            android:textSize="16sp" />
+            android:layout_marginTop="16dp"
+            android:background="#E3F2FD"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:id="@+id/text_resumo_rt"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:lineSpacingExtra="4dp"
+                android:text="Métricas de Sistema:\nFPS Médio: 60\nThroughput: 1.5 abates/s\nThreads Máximas: 12\nUtilização: 0.45"
+                android:textColor="#0D47A1"
+                android:textSize="13sp"
+                android:textStyle="italic" />
+        </LinearLayout>
+
+        <!-- BOTÕES -->
+        <Button
+            android:id="@+id/btn_reiniciar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:backgroundTint="#1976D2"
+            android:text="Jogar Novamente"
+            android:textAllCaps="false"
+            android:textColor="#FFFFFF" />
+
+        <Button
+            android:id="@+id/btn_sair"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="Encerrar"
+            android:textAllCaps="false"
+            android:textColor="#D32F2F" />
+
     </LinearLayout>
-
-    <Button
-        android:id="@+id/btn_reiniciar"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="48dp"
-        android:backgroundTint="#1976D2"
-        android:text="Jogar Novamente"
-        android:textColor="#FFFFFF" />
-
-    <Button
-        android:id="@+id/btn_sair"
-        style="@style/Widget.MaterialComponents.Button.TextButton"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="Sair"
-        android:textColor="#D32F2F" />
-
-</LinearLayout>
+</ScrollView>
