@@ -166,8 +166,9 @@ public class Jogo implements Runnable {
         energiaEsquerda.set(100);
         energiaDireita.set(100);
         
-        synchronized (LOCK_CANHOES) {
-            synchronized (LOCK_ALVOS) {
+        // CORREÇÃO DE DEADLOCK: Ordem de aquisição LOCK_ALVOS -> LOCK_CANHOES
+        synchronized (LOCK_ALVOS) {
+            synchronized (LOCK_CANHOES) {
                 for (Canhao canhao : canhoes) {
                     canhao.setAtivo(true);
                     new Thread(canhao).start();
@@ -199,11 +200,13 @@ public class Jogo implements Runnable {
             executorProjeteis.shutdownNow();
         }
         if (threadPrincipal != null) threadPrincipal.interrupt();
+        
+        // Segue a ordem LOCK_ALVOS -> LOCK_CANHOES para consistência
         synchronized (LOCK_ALVOS) {
             for (Alvo alvo : alvos) alvo.setAtivo(false);
-        }
-        synchronized (LOCK_CANHOES) {
-            for (Canhao canhao : canhoes) canhao.setAtivo(false);
+            synchronized (LOCK_CANHOES) {
+                for (Canhao canhao : canhoes) canhao.setAtivo(false);
+            }
         }
     }
 
@@ -232,7 +235,6 @@ public class Jogo implements Runnable {
     private void otimizarEDecidirLado(boolean esquerda) {
         double centroX = larguraTela / 2.0;
         
-        // AV2: Agora usa as listas separadas por lado para otimização
         List<Alvo> alvosLado;
         if (esquerda) {
             alvosLado = getAlvosEsquerda();
