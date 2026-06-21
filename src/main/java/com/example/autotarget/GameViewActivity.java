@@ -8,6 +8,10 @@ import android.widget.Button;
 import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 
+import java.util.UUID;
+import com.example.autotarget.Partida;
+import com.example.autotarget.FirestoreRepository;
+
 /**
  * Activity principal do jogo AutoTarget.
  * Gerencia o cronômetro de 60s e a execução do jogo.
@@ -90,6 +94,19 @@ public class GameViewActivity extends AppCompatActivity {
     private void finalizarJogo() {
         emExecucao = false;
         jogo.parar();
+
+        // Persistência automática no Firestore
+        Partida partida = new Partida(
+                UUID.randomUUID().toString(),
+                System.currentTimeMillis(),
+                jogo.getAbatesTotal(),
+                jogo.getAbatesTotal(),
+                jogo.getCanhoes().size(),
+                jogo.getEnergiaEsquerda() + jogo.getEnergiaDireita(),
+                "anonimo"
+        );
+        FirestoreRepository repository = new FirestoreRepository();
+        repository.salvarPartida(partida);
         
         // Prepara dados para a tela de Game Over
         Intent intent = new Intent(this, GameOverActivity.class);
