@@ -49,8 +49,9 @@ public class RankingActivity extends AppCompatActivity {
             rankingDisplay.add(item);
         }
 
+        // Usando o layout customizado item_ranking para garantir texto preto
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, 
-                android.R.layout.simple_list_item_1, rankingDisplay);
+                R.layout.item_ranking, rankingDisplay);
         rankingList.setAdapter(adapter);
     }
 
