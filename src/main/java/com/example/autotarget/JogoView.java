@@ -1,5 +1,6 @@
 package com.example.autotarget;
 
+import android.view.GestureDetector;
 import android.view.View;
 import android.graphics.Paint;
 import android.content.Context;
@@ -9,6 +10,7 @@ import android.util.AttributeSet;
 import android.view.MotionEvent;
 import java.util.List;
 import java.util.Locale;
+import java.util.Random;
 
 /**
  * View customizada que renderiza o jogo no Canvas com feedback visual melhorado e HUD AV2.
@@ -29,6 +31,9 @@ public class JogoView extends View {
     private Paint paintIA;
     private Paint paintRT;
     private boolean podeDesenhar;
+    
+    private GestureDetector gestureDetector;
+    private final Random random = new Random();
 
     private long lastTime = 0;
     private int frameCount = 0;
@@ -99,6 +104,24 @@ public class JogoView extends View {
         paintRT.setColor(0xFFAAAAAA);
 
         podeDesenhar = true;
+
+        gestureDetector = new GestureDetector(getContext(), new GestureDetector.SimpleOnGestureListener() {
+            @Override
+            public void onLongPress(MotionEvent e) {
+                if (jogo != null && jogo.isEmExecucao()) {
+                    double x = e.getX();
+                    double y = e.getY();
+                    Alvo novo;
+                    if (random.nextBoolean()) {
+                        novo = new AlvoComum(x, y, 40, 5);
+                    } else {
+                        novo = new AlvoRapido(x, y, 30, 8);
+                    }
+                    jogo.adicionarAlvo(novo);
+                    jogo.adicionarLog("Alvo adicionado manualmente");
+                }
+            }
+        });
     }
 
     public void setJogo(Jogo jogo) {
@@ -113,7 +136,6 @@ public class JogoView extends View {
 
     @Override
     protected void onDraw(Canvas canvas) {
-        // T5: UI / Renderização
         long startTime = System.currentTimeMillis();
         RealTimeScheduler.startTask("T5");
 
@@ -123,7 +145,6 @@ public class JogoView extends View {
             return;
         }
 
-        // Cálculo de FPS
         long now = System.currentTimeMillis();
         frameCount++;
         if (now - lastTime >= 1000) {
@@ -131,7 +152,6 @@ public class JogoView extends View {
             frameCount = 0;
             lastTime = now;
             GerenciadorMetricas.registrarFPS(currentFps);
-            // Log periódico de escalonamento no console
             if (GerenciadorMetricas.DEBUG) RealTimeScheduler.logReport();
         }
 
@@ -140,7 +160,6 @@ public class JogoView extends View {
         float centroX = getWidth() / 2f;
         canvas.drawLine(centroX, 0, centroX, getHeight(), paintDivisoria);
 
-        // Desenha alvos
         for (Alvo alvo : jogo.getAlvos()) {
             float x = (float) alvo.getX();
             float y = (float) alvo.getY();
@@ -161,12 +180,10 @@ public class JogoView extends View {
             }
         }
 
-        // Desenha canhões
         for (Canhao canhao : jogo.getCanhoes()) {
             drawCanhaoComFeedback(canvas, canhao);
         }
 
-        // Desenha projéteis
         for (Canhao canhao : jogo.getCanhoes()) {
             for (Projetil p : canhao.getProjeteis()) {
                 canvas.drawCircle((float) p.getX(), (float) p.getY(), (float) p.getRaio(), paintProjetil);
@@ -184,7 +201,6 @@ public class JogoView extends View {
         float larguraBarra = 200;
         float alturaBarra = 20;
 
-        // Lado Esquerdo
         int energiaEsq = jogo.getEnergiaEsquerda();
         int qtdEsq = jogo.getQtdCanhoesLado(true);
         double penEsq = jogo.getPenalidadeLado(true);
@@ -201,14 +217,13 @@ public class JogoView extends View {
         
         paintIA.setTextAlign(Paint.Align.LEFT);
         canvas.drawText(String.format(Locale.US, "Utilidade: %.2f | Decisão: %s", 
-                jogo.getUtilidadeEsq(), jogo.getÚltimaDecisaoEsq()), padding, 205, paintIA);
+                jogo.getUtilidadeEsq(), jogo.getUltimaDecisaoEsq()), padding, 205, paintIA);
 
         if (penEsq > 0) {
             paintHUD.setColor(Color.RED);
             canvas.drawText("Penalidade: +" + (int)(penEsq * 100) + "% delay", padding, 245, paintHUD);
         }
 
-        // Lado Direito
         int energiaDir = jogo.getEnergiaDireita();
         int qtdDir = jogo.getQtdCanhoesLado(false);
         double penDir = jogo.getPenalidadeLado(false);
@@ -226,31 +241,28 @@ public class JogoView extends View {
 
         paintIA.setTextAlign(Paint.Align.RIGHT);
         canvas.drawText(String.format(Locale.US, "Utilidade: %.2f | Decisão: %s", 
-                jogo.getUtilidadeDir(), jogo.getÚltimaDecisaoDir()), xDir, 205, paintIA);
+                jogo.getUtilidadeDir(), jogo.getUltimaDecisaoDir()), xDir, 205, paintIA);
 
         if (penDir > 0) {
             paintHUD.setColor(Color.RED);
             canvas.drawText("Penalidade: +" + (int)(penDir * 100) + "% delay", xDir, 245, paintHUD);
         }
 
-        // HUD AV2: Monitoramento de Tempo Real (Centro Inferior)
         paintRT.setTextAlign(Paint.Align.CENTER);
         int missed = RealTimeScheduler.getTotalDeadlinesMissed();
         TaskMetrics t4 = RealTimeScheduler.getMetrics("T4");
         double avgLoop = t4 != null ? t4.getAverageCi() : 0;
-        int activeThreads = jogo.getAlvos().size() + jogo.getCanhoes().size() + 5; // Estimativa
+        int activeThreads = jogo.getAlvos().size() + jogo.getCanhoes().size() + 5; 
 
         String rtInfo = String.format(Locale.US, "FPS: %d | Threads: %d | Deadlines Perdidos: %d | Loop Médio: %.1fms", 
                 currentFps, activeThreads, missed, avgLoop);
         canvas.drawText(rtInfo, getWidth() / 2f, getHeight() - 25, paintRT);
 
-        // Reconciliação
         paintRec.setTextAlign(Paint.Align.CENTER);
         String infoRec = String.format(Locale.US, "Rec. Ativa | Erro: %.2f -> %.2f | Cores: %d", 
                 jogo.getErroRecAntes(), jogo.getErroRecDepois(), RealTimeScheduler.getNumCores());
         canvas.drawText(infoRec, getWidth() / 2f, getHeight() - 55, paintRec);
 
-        // Logs
         paintHUD.setTextAlign(Paint.Align.CENTER);
         paintHUD.setColor(Color.GRAY);
         paintHUD.setTextSize(25);
@@ -287,6 +299,8 @@ public class JogoView extends View {
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         if (jogo == null) return false;
+        gestureDetector.onTouchEvent(event);
+
         if (event.getAction() == MotionEvent.ACTION_DOWN || event.getAction() == MotionEvent.ACTION_MOVE) {
             Canhao selecionado = null;
             double menorDist = Double.MAX_VALUE;

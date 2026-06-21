@@ -42,11 +42,11 @@ public class Jogo implements Runnable {
     private double erroReconciliacaoDepois = 0;
     private int leiturasReconciliacaoUsadas = 0;
 
-    // Decisão Automática AV2
+    // Decisão Automática AV2 (Nomes normalizados sem acento para evitar erros de compilação)
     private double utilidadeEsq = 0;
     private double utilidadeDir = 0;
-    private String últimaDecisaoEsq = "NENHUMA";
-    private String últimaDecisaoDir = "NENHUMA";
+    private String ultimaDecisaoEsq = "NENHUMA";
+    private String ultimaDecisaoDir = "NENHUMA";
     private static final double LIMIAR_ADICAO = 0.4; 
     private static final double LIMIAR_REMOCAO = 0.1;
     private static final int MAX_CANHOES_POR_LADO = 10;
@@ -85,8 +85,11 @@ public class Jogo implements Runnable {
                 
                 if (System.currentTimeMillis() % 1000 < 25) {
                     int numProjeteis = 0;
-                    synchronized (LOCK_CANHOES) {
-                        for (Canhao c : canhoes) numProjeteis += c.getProjeteis().size();
+                    // Ordem segura: ALVOS -> CANHOES para evitar deadlock
+                    synchronized (LOCK_ALVOS) {
+                        synchronized (LOCK_CANHOES) {
+                            for (Canhao c : canhoes) numProjeteis += c.getProjeteis().size();
+                        }
                     }
                     GerenciadorMetricas.logEstado(alvos.size(), canhoes.size(), numProjeteis);
                 }
@@ -110,7 +113,7 @@ public class Jogo implements Runnable {
      * AV2: Realiza a transferência atômica de alvos entre as listas de lado
      * quando estes atravessam a linha central da tela.
      */
-    private void atualizarPertencimentoDosAlvos() {
+    void atualizarPertencimentoDosAlvos() {
         if (larguraTela <= 0) return;
         double centroX = larguraTela / 2.0;
 
@@ -166,7 +169,7 @@ public class Jogo implements Runnable {
         energiaEsquerda.set(100);
         energiaDireita.set(100);
         
-        // CORREÇÃO DE DEADLOCK: Ordem de aquisição LOCK_ALVOS -> LOCK_CANHOES
+        // CORREÇÃO DE DEADLOCK: Ordem consistente LOCK_ALVOS -> LOCK_CANHOES
         synchronized (LOCK_ALVOS) {
             synchronized (LOCK_CANHOES) {
                 for (Canhao canhao : canhoes) {
@@ -223,8 +226,8 @@ public class Jogo implements Runnable {
 
     private void processarReconciliacaoEDecisao() {
         if (!emExecucao) return;
-        long startTime = System.currentTimeMillis();
         RealTimeScheduler.startTask("T7");
+        long startTime = System.currentTimeMillis();
         
         otimizarEDecidirLado(true);  // Esquerda
         otimizarEDecidirLado(false); // Direita
@@ -243,10 +246,13 @@ public class Jogo implements Runnable {
         }
 
         List<Canhao> canhoesLado = new ArrayList<>();
-        synchronized (LOCK_CANHOES) {
-            for (Canhao c : canhoes) {
-                if (c.isAtivo() && (esquerda ? c.getX() < centroX : c.getX() >= centroX)) {
-                    canhoesLado.add(c);
+        // Ordem segura de locks
+        synchronized (LOCK_ALVOS) {
+            synchronized (LOCK_CANHOES) {
+                for (Canhao c : canhoes) {
+                    if (c.isAtivo() && (esquerda ? c.getX() < centroX : c.getX() >= centroX)) {
+                        canhoesLado.add(c);
+                    }
                 }
             }
         }
@@ -330,16 +336,16 @@ public class Jogo implements Runnable {
 
         if (utilSeAdicionar > utilidadeAtual + LIMIAR_ADICAO && nCanhoes < MAX_CANHOES_POR_LADO) {
             executarAdicaoAutomatica(esquerda);
-            if (esquerda) últimaDecisaoEsq = "ADICIONAR"; else últimaDecisaoDir = "ADICIONAR";
+            if (esquerda) ultimaDecisaoEsq = "ADICIONAR"; else ultimaDecisaoDir = "ADICIONAR";
         } else if (nCanhoes > MIN_CANHOES_POR_LADO && (utilSeRemover > utilidadeAtual - LIMIAR_REMOCAO || getEnergiaLado(esquerda) < 10)) {
             if (utilSeRemover > utilidadeAtual || getEnergiaLado(esquerda) < 10) {
                 executarRemocaoAutomatica(esquerda);
-                if (esquerda) últimaDecisaoEsq = "REMOVER"; else últimaDecisaoDir = "REMOVER";
+                if (esquerda) ultimaDecisaoEsq = "REMOVER"; else ultimaDecisaoDir = "REMOVER";
             } else {
-                if (esquerda) últimaDecisaoEsq = "MANTER"; else últimaDecisaoDir = "MANTER";
+                if (esquerda) ultimaDecisaoEsq = "MANTER"; else ultimaDecisaoDir = "MANTER";
             }
         } else {
-            if (esquerda) últimaDecisaoEsq = "MANTER"; else últimaDecisaoDir = "MANTER";
+            if (esquerda) ultimaDecisaoEsq = "MANTER"; else ultimaDecisaoDir = "MANTER";
         }
     }
 
@@ -376,16 +382,17 @@ public class Jogo implements Runnable {
     }
 
     private void executarRemocaoAutomatica(boolean esquerda) {
-        synchronized (LOCK_CANHOES) {
-            double centroX = larguraTela / 2.0;
-            for (int i = 0; i < canhoes.size(); i++) {
-                Canhao c = canhoes.get(i);
-                boolean isEsq = c.getX() < centroX;
-                if (isEsq == esquerda) {
-                    c.setAtivo(false);
-                    canhoes.remove(i);
-                    adicionarLog("IA: Removido Canhão " + c.getId());
-                    break;
+        synchronized (LOCK_ALVOS) {
+            synchronized (LOCK_CANHOES) {
+                double centroX = larguraTela / 2.0;
+                for (int i = 0; i < canhoes.size(); i++) {
+                    Canhao c = canhoes.get(i);
+                    if ((c.getX() < centroX) == esquerda) {
+                        c.setAtivo(false);
+                        canhoes.remove(i);
+                        adicionarLog("IA: Removido Canhão " + c.getId());
+                        break;
+                    }
                 }
             }
         }
@@ -412,12 +419,11 @@ public class Jogo implements Runnable {
         }
     }
 
-    private void adicionarAlvo(Alvo alvo) {
+    void adicionarAlvo(Alvo alvo) {
         synchronized (LOCK_ALVOS) {
             alvo.setLimitesTela(larguraTela, alturaTela);
             alvos.add(alvo);
             
-            // AV2: Adiciona na lista correspondente ao lado inicial
             if (larguraTela > 0) {
                 if (alvo.getX() < larguraTela / 2.0) {
                     alvosEsquerda.add(alvo);
@@ -425,7 +431,7 @@ public class Jogo implements Runnable {
                     alvosDireita.add(alvo);
                 }
             } else {
-                alvosEsquerda.add(alvo); // Default
+                alvosEsquerda.add(alvo);
             }
 
             if (emExecucao) {
@@ -436,23 +442,25 @@ public class Jogo implements Runnable {
     }
 
     public void adicionarCanhao(double x, double y) throws JogoException {
-        synchronized (LOCK_CANHOES) {
-            if (canhoes.size() >= 20) throw new JogoException("Máximo de 20 canhões atingido");
-            double centro = larguraTela / 2.0;
-            double margemSeguranca = 80.0;
-            if (Math.abs(x - centro) < margemSeguranca) x = (x < centro) ? centro - margemSeguranca : centro + margemSeguranca;
-            for (Canhao existente : canhoes) {
-                if (Math.hypot(x - existente.getX(), y - existente.getY()) < DISTANCIA_MINIMA_CANHOES) {
-                    x += 160;
-                    if (Math.abs(x - centro) < margemSeguranca) x = centro + margemSeguranca;
+        synchronized (LOCK_ALVOS) {
+            synchronized (LOCK_CANHOES) {
+                if (canhoes.size() >= 20) throw new JogoException("Máximo de 20 canhões atingido");
+                double centro = larguraTela / 2.0;
+                double margemSeguranca = 80.0;
+                if (Math.abs(x - centro) < margemSeguranca) x = (x < centro) ? centro - margemSeguranca : centro + margemSeguranca;
+                for (Canhao existente : canhoes) {
+                    if (Math.hypot(x - existente.getX(), y - existente.getY()) < DISTANCIA_MINIMA_CANHOES) {
+                        x += 160;
+                        if (Math.abs(x - centro) < margemSeguranca) x = centro + margemSeguranca;
+                    }
                 }
-            }
-            Canhao novoCanhao = new Canhao(x, y, this, proximoIdCanhao++);
-            canhoes.add(novoCanhao);
-            adicionarLog("IA: Adicionado Canhão " + novoCanhao.getId());
-            if (emExecucao) {
-                novoCanhao.setAtivo(true);
-                new Thread(novoCanhao).start();
+                Canhao novoCanhao = new Canhao(x, y, this, proximoIdCanhao++);
+                canhoes.add(novoCanhao);
+                adicionarLog("IA: Adicionado Canhão " + novoCanhao.getId());
+                if (emExecucao) {
+                    novoCanhao.setAtivo(true);
+                    new Thread(novoCanhao).start();
+                }
             }
         }
     }
@@ -478,7 +486,6 @@ public class Jogo implements Runnable {
                     }
                 }
                 
-                // AV2: Limpa alvos inativos de todas as listas
                 alvos.removeIf(a -> !a.isAtivo());
                 alvosEsquerda.removeIf(a -> !a.isAtivo());
                 alvosDireita.removeIf(a -> !a.isAtivo());
@@ -489,17 +496,16 @@ public class Jogo implements Runnable {
         synchronized (LOCK_CANHOES) { for (Canhao c : canhoes) c.limparProjeteis(); }
     }
 
-    public SensorManager getSensorManager() { return sensorManager; }
-    public double getErroRecAntes() { return erroReconciliacaoAntes; }
-    public double getErroRecDepois() { return erroReconciliacaoDepois; }
-    public int getLeiturasRecUsadas() { return leiturasReconciliacaoUsadas; }
-    public double getUtilidadeEsq() { return utilidadeEsq; }
-    public double getUtilidadeDir() { return utilidadeDir; }
-    public String getÚltimaDecisaoEsq() { return últimaDecisaoEsq; }
-    public String getÚltimaDecisaoDir() { return últimaDecisaoDir; }
-
     public int getEnergiaEsquerda() { return energiaEsquerda.get(); }
     public int getEnergiaDireita() { return energiaDireita.get(); }
+    
+    public double getErroRecAntes() { return erroReconciliacaoAntes; }
+    public double getErroRecDepois() { return erroReconciliacaoDepois; }
+    public double getUtilidadeEsq() { return utilidadeEsq; }
+    public double getUtilidadeDir() { return utilidadeDir; }
+    public String getUltimaDecisaoEsq() { return ultimaDecisaoEsq; }
+    public String getUltimaDecisaoDir() { return ultimaDecisaoDir; }
+
     public boolean consumirEnergia(double posX) {
         AtomicInteger energiaLado = (posX < larguraTela / 2.0) ? energiaEsquerda : energiaDireita;
         while (true) {
@@ -511,8 +517,10 @@ public class Jogo implements Runnable {
     public int getQtdCanhoesLado(boolean esquerda) {
         int count = 0;
         double centro = larguraTela / 2.0;
-        synchronized (LOCK_CANHOES) {
-            for (Canhao c : canhoes) { if ((c.getX() < centro) == esquerda) count++; }
+        synchronized (LOCK_ALVOS) {
+            synchronized (LOCK_CANHOES) {
+                for (Canhao c : canhoes) { if ((c.getX() < centro) == esquerda) count++; }
+            }
         }
         return count;
     }
@@ -525,7 +533,6 @@ public class Jogo implements Runnable {
         synchronized (LOCK_ALVOS) { return new ArrayList<>(alvos); } 
     }
     
-    // AV2: Getters para listas por lado com cópia segura
     public List<Alvo> getAlvosEsquerda() {
         synchronized (LOCK_ALVOS) { return new ArrayList<>(alvosEsquerda); }
     }
@@ -534,10 +541,15 @@ public class Jogo implements Runnable {
         synchronized (LOCK_ALVOS) { return new ArrayList<>(alvosDireita); }
     }
 
+    public List<Canhao> getCanhoes() {
+        synchronized (LOCK_ALVOS) { 
+            synchronized (LOCK_CANHOES) { return new ArrayList<>(canhoes); }
+        }
+    }
+
     public int getAbatesTotal() { return abatesTotal; }
     public int getAbatesEsquerda() { return abatesEsquerda; }
     public int getAbatesDireita() { return abatesDireita; }
     public boolean isEmExecucao() { return emExecucao; }
     public int getLarguraTela() { return larguraTela; }
-    public int getAlturaTela() { return alturaTela; }
 }
