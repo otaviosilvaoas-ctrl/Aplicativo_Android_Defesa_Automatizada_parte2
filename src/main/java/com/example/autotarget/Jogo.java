@@ -16,6 +16,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class Jogo implements Runnable {
     private final List<Alvo> alvos;
+    private final List<Alvo> alvosEsquerda; // AV2: Listas separadas por lado
+    private final List<Alvo> alvosDireita;
     private final List<Canhao> canhoes;
     private final List<String> logsTela;
     private boolean emExecucao;
@@ -59,6 +61,8 @@ public class Jogo implements Runnable {
 
     public Jogo() {
         this.alvos = new ArrayList<>();
+        this.alvosEsquerda = new ArrayList<>();
+        this.alvosDireita = new ArrayList<>();
         this.canhoes = new ArrayList<>();
         this.logsTela = Collections.synchronizedList(new ArrayList<>());
         this.emExecucao = false;
@@ -76,6 +80,7 @@ public class Jogo implements Runnable {
             RealTimeScheduler.startTask("T4");
             
             try {
+                atualizarPertencimentoDosAlvos(); // AV2: Transferência atômica entre lados
                 verificarColisoes();
                 
                 if (System.currentTimeMillis() % 1000 < 25) {
@@ -91,13 +96,43 @@ public class Jogo implements Runnable {
                 // T8: Gerenciamento de Energia e Penalidades
                 long startTimeEnergy = System.currentTimeMillis();
                 RealTimeScheduler.startTask("T8");
-                // Monitorando apenas o overhead do ciclo de controle de energia
                 RealTimeScheduler.endTask("T8", startTimeEnergy);
 
                 Thread.sleep(20); 
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 break;
+            }
+        }
+    }
+
+    /**
+     * AV2: Realiza a transferência atômica de alvos entre as listas de lado
+     * quando estes atravessam a linha central da tela.
+     */
+    private void atualizarPertencimentoDosAlvos() {
+        if (larguraTela <= 0) return;
+        double centroX = larguraTela / 2.0;
+
+        synchronized (LOCK_ALVOS) {
+            // Verifica alvos que estavam na esquerda e foram para a direita
+            for (int i = alvosEsquerda.size() - 1; i >= 0; i--) {
+                Alvo a = alvosEsquerda.get(i);
+                if (a.getX() >= centroX) {
+                    alvosEsquerda.remove(i);
+                    alvosDireita.add(a);
+                    adicionarLog("Alvo migrou para DIREITA");
+                }
+            }
+
+            // Verifica alvos que estavam na direita e foram para a esquerda
+            for (int i = alvosDireita.size() - 1; i >= 0; i--) {
+                Alvo a = alvosDireita.get(i);
+                if (a.getX() < centroX) {
+                    alvosDireita.remove(i);
+                    alvosEsquerda.add(a);
+                    adicionarLog("Alvo migrou para ESQUERDA");
+                }
             }
         }
     }
@@ -124,7 +159,6 @@ public class Jogo implements Runnable {
     public synchronized void iniciar() throws JogoException {
         if (emExecucao) throw new JogoException("Jogo já está em execução");
         
-        // Reset de métricas para nova partida
         RealTimeScheduler.resetAll();
         GerenciadorMetricas.reset();
 
@@ -186,7 +220,6 @@ public class Jogo implements Runnable {
 
     private void processarReconciliacaoEDecisao() {
         if (!emExecucao) return;
-        // T7: Reconciliação e Otimização
         long startTime = System.currentTimeMillis();
         RealTimeScheduler.startTask("T7");
         
@@ -198,13 +231,13 @@ public class Jogo implements Runnable {
 
     private void otimizarEDecidirLado(boolean esquerda) {
         double centroX = larguraTela / 2.0;
-        List<Alvo> alvosLado = new ArrayList<>();
-        synchronized (LOCK_ALVOS) {
-            for (Alvo a : alvos) {
-                if (a.isAtivo() && (esquerda ? a.getX() < centroX : a.getX() >= centroX)) {
-                    alvosLado.add(a);
-                }
-            }
+        
+        // AV2: Agora usa as listas separadas por lado para otimização
+        List<Alvo> alvosLado;
+        if (esquerda) {
+            alvosLado = getAlvosEsquerda();
+        } else {
+            alvosLado = getAlvosDireita();
         }
 
         List<Canhao> canhoesLado = new ArrayList<>();
@@ -381,6 +414,18 @@ public class Jogo implements Runnable {
         synchronized (LOCK_ALVOS) {
             alvo.setLimitesTela(larguraTela, alturaTela);
             alvos.add(alvo);
+            
+            // AV2: Adiciona na lista correspondente ao lado inicial
+            if (larguraTela > 0) {
+                if (alvo.getX() < larguraTela / 2.0) {
+                    alvosEsquerda.add(alvo);
+                } else {
+                    alvosDireita.add(alvo);
+                }
+            } else {
+                alvosEsquerda.add(alvo); // Default
+            }
+
             if (emExecucao) {
                 alvo.setAtivo(true);
                 new Thread(alvo).start();
@@ -430,7 +475,12 @@ public class Jogo implements Runnable {
                         }
                     }
                 }
+                
+                // AV2: Limpa alvos inativos de todas as listas
                 alvos.removeIf(a -> !a.isAtivo());
+                alvosEsquerda.removeIf(a -> !a.isAtivo());
+                alvosDireita.removeIf(a -> !a.isAtivo());
+                
                 if (alvos.size() < 5 && emExecucao) criarAlvosIniciais();
             }
         }
@@ -468,8 +518,20 @@ public class Jogo implements Runnable {
         int n = getQtdCanhoesLado(esquerda);
         return n <= LIMITE_CANHOES_LADO ? 0.0 : (n - LIMITE_CANHOES_LADO) * 0.2;
     }
-    public List<Alvo> getAlvos() { synchronized (LOCK_ALVOS) { return new ArrayList<>(alvos); } }
-    public List<Canhao> getCanhoes() { synchronized (LOCK_CANHOES) { return new ArrayList<>(canhoes); } }
+    
+    public List<Alvo> getAlvos() { 
+        synchronized (LOCK_ALVOS) { return new ArrayList<>(alvos); } 
+    }
+    
+    // AV2: Getters para listas por lado com cópia segura
+    public List<Alvo> getAlvosEsquerda() {
+        synchronized (LOCK_ALVOS) { return new ArrayList<>(alvosEsquerda); }
+    }
+    
+    public List<Alvo> getAlvosDireita() {
+        synchronized (LOCK_ALVOS) { return new ArrayList<>(alvosDireita); }
+    }
+
     public int getAbatesTotal() { return abatesTotal; }
     public int getAbatesEsquerda() { return abatesEsquerda; }
     public int getAbatesDireita() { return abatesDireita; }
