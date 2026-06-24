@@ -9,9 +9,21 @@ import androidx.appcompat.app.AppCompatActivity;
 
 public class MainActivity extends AppCompatActivity {
 
+    private AuthManager authManager;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        
+        authManager = new AuthManager();
+        
+        // AV3 Letra E: Bloqueio de acesso se não houver usuário autenticado
+        if (!authManager.isUsuarioLogado()) {
+            startActivity(new Intent(this, LoginActivity.class));
+            finish();
+            return;
+        }
+
         setContentView(R.layout.activity_main);
 
         TextView titleView = findViewById(R.id.title);
@@ -32,6 +44,15 @@ public class MainActivity extends AppCompatActivity {
         rankingButton.setOnClickListener(view -> {
             Intent intent = new Intent(this, RankingActivity.class);
             startActivity(intent);
+        });
+        
+        // Botão Logout (Opcional, mas útil para testes de segurança)
+        Button logoutButton = new Button(this);
+        logoutButton.setText("Sair");
+        logoutButton.setOnClickListener(v -> {
+            authManager.realizarLogout();
+            startActivity(new Intent(this, LoginActivity.class));
+            finish();
         });
     }
 }
