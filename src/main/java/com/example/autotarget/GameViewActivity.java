@@ -4,11 +4,16 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 import android.widget.Button;
 import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 
 import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+
 import com.example.autotarget.Partida;
 import com.example.autotarget.FirestoreRepository;
 
@@ -32,6 +37,14 @@ public class GameViewActivity extends AppCompatActivity {
     private boolean cronometroIniciado = false;
     private Runnable timerRunnable;
 
+    // AV3 Letra D: Atributos para o Sistema Ciberfísico
+    private ScheduledExecutorService telemetriaExecutor;
+    private SensorTemperatura sensorTemperatura;
+    private FirestoreRepository repository;
+    
+    // AV3 Letra E: Gerenciador de Autenticação
+    private AuthManager authManager;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -45,11 +58,15 @@ public class GameViewActivity extends AppCompatActivity {
         jogo = new Jogo();
         jogoView.setJogo(jogo);
         handler = new Handler(Looper.getMainLooper());
+        repository = new FirestoreRepository();
+        sensorTemperatura = new SensorTemperatura();
+        authManager = new AuthManager();
 
         try {
             jogo.iniciar();
             emExecucao = true;
             iniciarThreadDeAtualizacao();
+            iniciarTelemetria(); // AV3 Letra D: Inicia a coleta de telemetria
         } catch (JogoException e) {
             statusText.setText("Erro: " + e.getMessage());
         }
@@ -91,11 +108,40 @@ public class GameViewActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * AV3 Letra D: Implementação do Sistema Ciberfísico com Controle de Feedback Térmico.
+     */
+    private void iniciarTelemetria() {
+        telemetriaExecutor = Executors.newSingleThreadScheduledExecutor();
+        telemetriaExecutor.scheduleWithFixedDelay(() -> {
+            if (emExecucao) {
+                // 1. Leitura do Sensor
+                float temp = sensorTemperatura.lerTemperatura();
+                Telemetria t = new Telemetria(temp, System.currentTimeMillis());
+
+                // 2. Persistência no Firestore
+                repository.salvarTelemetria(t);
+
+                // 3. Lógica de Controle Feedback
+                if (temp > 40.0f) {
+                    jogo.setFatorTermico(2.0); // Reduz taxa de disparo (dobra o intervalo)
+                    Log.d("CPS_Control", "AV3 D - Alerta Térmico: " + temp + "°C. Modo de proteção ativado.");
+                } else {
+                    jogo.setFatorTermico(1.0); // Restaura taxa normal
+                }
+            }
+        }, 0, 10, TimeUnit.SECONDS);
+    }
+
     private void finalizarJogo() {
         emExecucao = false;
         jogo.parar();
+        pararTelemetria(); // AV3 Letra D: Para a coleta ao fim do jogo
 
-        // Persistência automática no Firestore
+        // AV3 Letra E: Obtendo o UID real do usuário autenticado para a persistência
+        String usuarioId = authManager.getUsuarioAtualUid();
+
+        // Persistência automática no Firestore (AV3 Letra B/C/E)
         Partida partida = new Partida(
                 UUID.randomUUID().toString(),
                 System.currentTimeMillis(),
@@ -103,9 +149,8 @@ public class GameViewActivity extends AppCompatActivity {
                 jogo.getAbatesTotal(),
                 jogo.getCanhoes().size(),
                 jogo.getEnergiaEsquerda() + jogo.getEnergiaDireita(),
-                "anonimo"
+                usuarioId
         );
-        FirestoreRepository repository = new FirestoreRepository();
         repository.salvarPartida(partida);
         
         // Prepara dados para a tela de Game Over
@@ -120,6 +165,12 @@ public class GameViewActivity extends AppCompatActivity {
         
         startActivity(intent);
         finish();
+    }
+
+    private void pararTelemetria() {
+        if (telemetriaExecutor != null) {
+            telemetriaExecutor.shutdownNow();
+        }
     }
 
     private void iniciarThreadDeAtualizacao() {
@@ -143,6 +194,7 @@ public class GameViewActivity extends AppCompatActivity {
         super.onPause();
         if (emExecucao) {
             jogo.parar();
+            pararTelemetria();
             emExecucao = false;
         }
     }
@@ -152,6 +204,8 @@ public class GameViewActivity extends AppCompatActivity {
         super.onDestroy();
         handler.removeCallbacks(timerRunnable);
         if (jogo != null) jogo.parar();
+        pararTelemetria();
+        if (repository != null) repository.shutdown();
         emExecucao = false;
     }
 }

@@ -12,11 +12,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Classe principal que gerencia a lógica do jogo.
- * Implementa Runnable para ser controlado por uma Thread mestre.
  */
 public class Jogo implements Runnable {
     private final List<Alvo> alvos;
-    private final List<Alvo> alvosEsquerda; // AV2: Listas separadas por lado
+    private final List<Alvo> alvosEsquerda;
     private final List<Alvo> alvosDireita;
     private final List<Canhao> canhoes;
     private final List<String> logsTela;
@@ -30,19 +29,16 @@ public class Jogo implements Runnable {
     private int larguraTela;
     private int alturaTela;
     
-    // Recursos AV2
     private final AtomicInteger energiaEsquerda = new AtomicInteger(100);
     private final AtomicInteger energiaDireita = new AtomicInteger(100);
     public static final int LIMITE_CANHOES_LADO = 5;
     
-    // Sensores e Reconciliação AV2
     private final SensorManager sensorManager;
     private ScheduledExecutorService reconciliationScheduler;
     private double erroReconciliacaoAntes = 0;
     private double erroReconciliacaoDepois = 0;
     private int leiturasReconciliacaoUsadas = 0;
 
-    // Decisão Automática AV2 (Nomes normalizados sem acento para evitar erros de compilação)
     private double utilidadeEsq = 0;
     private double utilidadeDir = 0;
     private String ultimaDecisaoEsq = "NENHUMA";
@@ -58,6 +54,9 @@ public class Jogo implements Runnable {
     private static final Object LOCK_CANHOES = new Object();
     private static final double DISTANCIA_MINIMA_CANHOES = 150.0;
     private static final int POOL_PROJETEIS = 30;
+
+    // AV3 Letra D: Atributo para controle de feedback térmico
+    private double fatorTermico = 1.0;
 
     public Jogo() {
         this.alvos = new ArrayList<>();
@@ -75,17 +74,15 @@ public class Jogo implements Runnable {
     @Override
     public void run() {
         while (emExecucao && !Thread.currentThread().isInterrupted()) {
-            // T4: Verificação de Colisões
             long startTimeCol = System.currentTimeMillis();
             RealTimeScheduler.startTask("T4");
             
             try {
-                atualizarPertencimentoDosAlvos(); // AV2: Transferência atômica entre lados
+                atualizarPertencimentoDosAlvos();
                 verificarColisoes();
                 
                 if (System.currentTimeMillis() % 1000 < 25) {
                     int numProjeteis = 0;
-                    // Ordem segura: ALVOS -> CANHOES para evitar deadlock
                     synchronized (LOCK_ALVOS) {
                         synchronized (LOCK_CANHOES) {
                             for (Canhao c : canhoes) numProjeteis += c.getProjeteis().size();
@@ -95,12 +92,6 @@ public class Jogo implements Runnable {
                 }
 
                 RealTimeScheduler.endTask("T4", startTimeCol);
-
-                // T8: Gerenciamento de Energia e Penalidades
-                long startTimeEnergy = System.currentTimeMillis();
-                RealTimeScheduler.startTask("T8");
-                RealTimeScheduler.endTask("T8", startTimeEnergy);
-
                 Thread.sleep(20); 
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -109,16 +100,20 @@ public class Jogo implements Runnable {
         }
     }
 
-    /**
-     * AV2: Realiza a transferência atômica de alvos entre as listas de lado
-     * quando estes atravessam a linha central da tela.
-     */
+    // AV3 Letra D: Getters e Setters para o fator térmico
+    public double getFatorTermico() {
+        return fatorTermico;
+    }
+
+    public void setFatorTermico(double fatorTermico) {
+        this.fatorTermico = fatorTermico;
+    }
+
     void atualizarPertencimentoDosAlvos() {
         if (larguraTela <= 0) return;
         double centroX = larguraTela / 2.0;
 
         synchronized (LOCK_ALVOS) {
-            // Verifica alvos que estavam na esquerda e foram para a direita
             for (int i = alvosEsquerda.size() - 1; i >= 0; i--) {
                 Alvo a = alvosEsquerda.get(i);
                 if (a.getX() >= centroX) {
@@ -128,7 +123,6 @@ public class Jogo implements Runnable {
                 }
             }
 
-            // Verifica alvos que estavam na direita e foram para a esquerda
             for (int i = alvosDireita.size() - 1; i >= 0; i--) {
                 Alvo a = alvosDireita.get(i);
                 if (a.getX() < centroX) {
@@ -169,7 +163,6 @@ public class Jogo implements Runnable {
         energiaEsquerda.set(100);
         energiaDireita.set(100);
         
-        // CORREÇÃO DE DEADLOCK: Ordem consistente LOCK_ALVOS -> LOCK_CANHOES
         synchronized (LOCK_ALVOS) {
             synchronized (LOCK_CANHOES) {
                 for (Canhao canhao : canhoes) {
@@ -204,7 +197,6 @@ public class Jogo implements Runnable {
         }
         if (threadPrincipal != null) threadPrincipal.interrupt();
         
-        // Segue a ordem LOCK_ALVOS -> LOCK_CANHOES para consistência
         synchronized (LOCK_ALVOS) {
             for (Alvo alvo : alvos) alvo.setAtivo(false);
             synchronized (LOCK_CANHOES) {
@@ -238,15 +230,9 @@ public class Jogo implements Runnable {
     private void otimizarEDecidirLado(boolean esquerda) {
         double centroX = larguraTela / 2.0;
         
-        List<Alvo> alvosLado;
-        if (esquerda) {
-            alvosLado = getAlvosEsquerda();
-        } else {
-            alvosLado = getAlvosDireita();
-        }
-
+        List<Alvo> alvosLado = esquerda ? getAlvosEsquerda() : getAlvosDireita();
         List<Canhao> canhoesLado = new ArrayList<>();
-        // Ordem segura de locks
+
         synchronized (LOCK_ALVOS) {
             synchronized (LOCK_CANHOES) {
                 for (Canhao c : canhoes) {

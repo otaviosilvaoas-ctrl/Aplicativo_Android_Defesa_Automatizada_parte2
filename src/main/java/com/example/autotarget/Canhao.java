@@ -101,7 +101,9 @@ public class Canhao implements Runnable {
             long now = System.currentTimeMillis();
             boolean esquerda = this.x < (jogo.getLarguraTela() / 2.0);
             double penalidade = jogo.getPenalidadeLado(esquerda);
-            long intervaloFinal = (long) (INTERVALO_DE_DISPARO_BASE * (1 + penalidade));
+            
+            // AV3 Letra D: Aplicação do fator térmico na taxa de disparo (Sistemas Ciberfísicos)
+            long intervaloFinal = (long) (INTERVALO_DE_DISPARO_BASE * (1 + penalidade) * jogo.getFatorTermico());
 
             if (now - lastShot >= intervaloFinal) {
                 // T2/T3: Monitoramento de Disparo
