@@ -11,6 +11,7 @@ import com.google.firebase.auth.FirebaseUser;
 
 /**
  * AV3 Letra E: Activity de Login.
+ * Modificada para sempre exigir login ao iniciar o aplicativo.
  */
 public class LoginActivity extends AppCompatActivity {
 
@@ -26,12 +27,9 @@ public class LoginActivity extends AppCompatActivity {
 
         authManager = new AuthManager();
 
-        // Se já estiver logado, vai para a MainActivity
-        if (authManager.isUsuarioLogado()) {
-            startActivity(new Intent(this, MainActivity.class));
-            finish();
-            return;
-        }
+        // AV3 Letra E: Força o logout ao abrir a tela para garantir que o usuário 
+        // sempre tenha que inserir as credenciais a cada nova entrada no app.
+        authManager.realizarLogout();
 
         editEmail = findViewById(R.id.edit_email);
         editPassword = findViewById(R.id.edit_password);
