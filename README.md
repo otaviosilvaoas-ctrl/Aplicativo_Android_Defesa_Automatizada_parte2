@@ -1,86 +1,86 @@
-# 🎯 AutoTarget - AV2 (Automação Avançada - UFLA)
+# 🎯 AutoTarget - AV3 (Automação Avançada - UFLA)
 
 ## 📌 Descrição do Projeto
 
-O **AutoTarget** é um jogo desenvolvido para dispositivos Android que simula um sistema de defesa automatizado em tempo real. Alvos se movimentam continuamente pelo campo de batalha enquanto canhões autônomos realizam a detecção, rastreamento e eliminação dos alvos de forma automática.
+O **AutoTarget** é um jogo Android que simula um sistema automatizado de defesa em tempo real. Alvos se movimentam continuamente pelo campo de batalha enquanto canhões autônomos detectam, rastreiam e eliminam os alvos de forma automática.
 
-Esta versão corresponde à **AV2 da disciplina GAT108 – Automação Avançada**, expandindo a base desenvolvida na AV1 com conceitos de:
-
-* Programação concorrente
-* Sincronização entre múltiplas threads
-* Sistemas de sensores
-* Gerenciamento de recursos
-* Penalidades operacionais
-* Divisão lógica do campo de batalha
-* Programação Orientada a Objetos (POO)
+Esta versão corresponde à **AV3 da disciplina GAT108 – Automação Avançada**, com foco na implementação de mecanismos de segurança, autenticação de usuários e proteção dos dados do sistema utilizando os serviços do Firebase.
 
 ---
 
-## 🎮 Funcionalidades Implementadas
+## 🔐 Funcionalidades de Segurança Implementadas
 
-### 🖥️ Interface (UI)
+### 👤 Autenticação de Usuários
 
-* Canvas com renderização em tempo real
-* Botão **Iniciar**
-* Botão **Adicionar Canhão**
-* Sistema de placar por equipe
-* Exibição do nível de energia de cada lado
-* Indicação visual de penalidades por excesso de canhões
-* Tela de fim de jogo com resultado final
+* Integração com Firebase Authentication
+* Cadastro de novos usuários por e-mail e senha
+* Login seguro para acesso ao sistema
+* Logout de usuários autenticados
+* Persistência de sessão entre execuções do aplicativo
+
+### 🛡️ Controle de Acesso
+
+* Restrição de acesso ao jogo apenas para usuários autenticados
+* Proteção da tela de ranking
+* Validação automática da autenticação ao iniciar o aplicativo
+* Redirecionamento para a tela de login quando necessário
+
+### ☁️ Integração com Firebase
+
+* Comunicação segura com os serviços Firebase
+* Armazenamento de informações vinculadas ao usuário autenticado
+* Identificação única de cada jogador através do UID fornecido pelo Firebase
+
+### ⚠️ Tratamento de Falhas de Segurança
+
+* Validação dos dados fornecidos no cadastro
+* Tratamento de erros de autenticação
+* Mensagens informativas para falhas de login
+* Proteção contra acessos não autorizados
 
 ---
+
+## 🎮 Funcionalidades Herdadas das Versões Anteriores
 
 ### 🎯 Sistema de Jogo
 
 #### 🔵 Alvos
 
-* Representados por círculos em movimento
 * Movimentação automática e aleatória
-* Implementados como threads independentes
-* Distribuídos entre os lados esquerdo e direito do campo
+* Execução em threads independentes
+* Distribuição entre os lados do campo de batalha
 
 #### 🔺 Canhões
 
-* Representados por triângulos
-* Executados em threads próprias
-* Mira automática em alvos válidos do mesmo lado
+* Mira automática em alvos válidos
 * Disparo condicionado à disponibilidade de energia
-* Penalidade dinâmica na taxa de disparo quando há excesso de canhões
+* Penalidade operacional por excesso de canhões
 
 #### 💥 Projéteis
 
-* Movimentação linear em direção ao alvo
+* Movimentação linear
 * Detecção de colisão
 * Atualização automática do placar
-* Reutilização através de Object Pool para redução de overhead
-
----
+* Reutilização por Object Pool
 
 ### ⚡ Sistema de Energia
 
-* Cada lado inicia com 100 unidades de energia
-* Cada disparo consome energia
-* Controle thread-safe utilizando AtomicInteger
-* Bloqueio automático de disparos quando a energia se esgota
-* Atualização visual em tempo real
-
----
+* Controle individual por equipe
+* Consumo de energia a cada disparo
+* Implementação thread-safe utilizando AtomicInteger
 
 ### 📡 Sistema de Sensores
 
-* Coleta periódica de dados dos alvos
+* Aquisição periódica de dados dos alvos
 * Frequência de amostragem de 1 Hz
 * Inserção de ruído gaussiano de 5%
-* Armazenamento das leituras em buffer circular
-* Histórico de até 20 medições por alvo
-
----
+* Buffer circular para armazenamento das medições
 
 ### 🏆 Sistema de Pontuação
 
-* Pontuação independente para cada lado
-* Incremento automático quando um alvo é abatido
-* Determinação automática de vencedor ou empate
+* Placar independente por equipe
+* Determinação automática do vencedor
+* Exibição do resultado final ao término da partida
 
 ---
 
@@ -88,57 +88,42 @@ Esta versão corresponde à **AV2 da disciplina GAT108 – Automação Avançada
 
 ### 📦 Classes Principais
 
-* `Jogo` → Gerenciamento central do sistema
-* `Alvo` → Controle dos alvos móveis
-* `Canhao` → Controle dos canhões automáticos
+* `LoginActivity` → Tela de autenticação
+* `RegisterActivity` → Cadastro de usuários
+* `FirebaseAuthManager` → Gerenciamento da autenticação
+* `Jogo` → Controle central do sistema
+* `Alvo` → Gerenciamento dos alvos
+* `Canhao` → Controle dos canhões
 * `Projetil` → Gerenciamento dos projéteis
-* `SensorManager` → Coleta de dados dos sensores
-* `GameOverActivity` → Exibição do resultado final
+* `SensorManager` → Sistema de sensores
+* `GameOverActivity` → Resultado final da partida
 
 ---
 
-## 🧵 Programação Concorrente
+## 🔒 Testes de Segurança Realizados
 
-O sistema utiliza múltiplas threads executando simultaneamente:
-
-* Threads de movimentação dos alvos
-* Threads dos canhões
-* Threads dos projéteis
-* Thread de aquisição de sensores
-* Atualizações sincronizadas do estado do jogo
-
----
-
-## 🔒 Sincronização
-
-Para evitar condições de corrida:
-
-* Uso de `synchronized` em regiões críticas
-* Proteção das listas compartilhadas
-* Controle seguro de energia utilizando `AtomicInteger`
-* Sincronização de buffers de sensores
-* Controle seguro de acesso aos objetos reutilizados
+* Verificação de login obrigatório
+* Teste de bloqueio de acesso sem autenticação
+* Teste de cadastro de novos usuários
+* Teste de persistência de sessão
+* Teste de logout e encerramento da sessão
+* Validação do acesso ao ranking apenas para usuários autenticados
+* Testes de tratamento de erros de autenticação
 
 ---
 
-## 🚀 Melhorias em Relação à AV1
+## 🚀 Melhorias em Relação à AV2
 
-* Correção do problema de double-start de threads
-* Controle de qualquer canhão por toque
-* Limites dinâmicos de tela
-* Implementação de Object Pool para projéteis
-* Sistema de energia por equipe
-* Penalidade operacional por excesso de canhões
-* Sistema de sensores com ruído gaussiano
-* Buffer circular de medições
-* Divisão lógica do campo de batalha
-* Sistema de pontuação e determinação automática de vencedor
+* Implementação do Firebase Authentication
+* Sistema completo de cadastro e login
+* Proteção das funcionalidades críticas do sistema
+* Controle de acesso baseado em autenticação
+* Persistência segura da sessão do usuário
+* Tratamento de exceções relacionadas à segurança
+* Testes de autenticação e autorização
 
 ---
 
-## ⚠️ Tratamento de Exceções
+## ✅ Conclusão
 
-* Utilização de blocos `try-catch`
-* Tratamento de falhas de execução concorrente
-* Exceções personalizadas para validação das regras do jogo
-* Proteção contra estados inválidos do sistema
+A versão AV3 amplia a confiabilidade e a segurança do AutoTarget por meio da implementação de autentação de usuários e controle de acesso utilizando Firebase Authentication. Com isso, o sistema passa a garantir que apenas usuários autorizados possam acessar funcionalidades importantes, tornando a aplicação mais robusta e alinhada aos princípios de segurança em sistemas automatizados.
